@@ -167,6 +167,18 @@ describe('change set reads', () => {
     } finally { status.dispose(); }
   });
 
+  it('clears the list after the owner commits in a terminal', async () => {
+    await note('note.md', 'one\n');
+    await commit();
+    await note('note.md', 'two\n');
+    const status = reader();
+    try {
+      expect((await status.readChangeSet(settings, everything)).files).toHaveLength(1);
+      await commit();
+      expect((await status.readChangeSet(settings, everything)).files).toHaveLength(0);
+    } finally { status.dispose(); }
+  });
+
   it('honors excludes and the untracked toggle', async () => {
     await note('.obsidian/app.json', '{}\n');
     await note('visible.md', 'x\n');

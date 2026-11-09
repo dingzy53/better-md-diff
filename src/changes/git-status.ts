@@ -171,15 +171,20 @@ export class GitStatusReader {
     if (!file) return { added: 0, binary: false }; // Outside Obsidian's index, e.g. a hidden folder.
     const limits = this.limits();
     if (file.stat.size > limits.maxFileMiB * 1024 * 1024) return { added: 0, binary: false };
-    const extension = file.extension.toLowerCase();
-    if (TEXT_EXTENSIONS.has(extension)) {
-      const text = await this.vault.cachedRead(file);
-      if (text.includes('\0')) return { added: 0, binary: true };
-      return { added: countLines(text), binary: false };
+    try {
+      const extension = file.extension.toLowerCase();
+      if (TEXT_EXTENSIONS.has(extension)) {
+        const text = await this.vault.cachedRead(file);
+        if (text.includes('\0')) return { added: 0, binary: true };
+        return { added: countLines(text), binary: false };
+      }
+      const bytes = new Uint8Array(await this.vault.readBinary(file));
+      if (bytes.subarray(0, 8192).includes(0)) return { added: 0, binary: true };
+      return { added: countLines(new TextDecoder().decode(bytes)), binary: false };
+    } catch {
+      // One unreadable file must not hide the rest of the list.
+      return { added: 0, binary: false };
     }
-    const bytes = new Uint8Array(await this.vault.readBinary(file));
-    if (bytes.subarray(0, 8192).includes(0)) return { added: 0, binary: true };
-    return { added: countLines(new TextDecoder().decode(bytes)), binary: false };
   }
 
   /** HEAD content of one path; null when the path is new or HEAD is unborn. */

@@ -128,11 +128,13 @@ export class PlainDiffView extends ItemView {
       body.createDiv({ cls: 'unc-state unc-empty', text: 'No longer changed' });
       return;
     }
-    if (file.binary) {
-      await this.renderBinary(file, body, revision);
-      return;
+    try {
+      if (file.binary) await this.renderBinary(file, body, revision);
+      else await this.renderText(file, body, revision);
+    } catch (error) {
+      if (revision !== this.revision) return;
+      body.createDiv({ cls: 'unc-state unc-error-message', text: error instanceof Error ? error.message : 'Unable to read this file.' });
     }
-    await this.renderText(file, body, revision);
   }
 
   private async renderBinary(file: ChangedFile, body: HTMLElement, revision: number): Promise<void> {
