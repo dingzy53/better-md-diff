@@ -81,6 +81,7 @@ export class ChangesView extends ItemView {
     this.renderHeader(state);
     const body = this.contentEl.createDiv({ cls: 'unc-body' });
     body.setAttribute('role', 'tree');
+    body.setAttribute('aria-label', 'Changed files');
     this.scrollEl = body.createDiv({ cls: 'unc-tree' });
     this.renderBody(state, this.scrollEl);
     this.scrollEl.scrollTop = scrollTop;
@@ -147,21 +148,21 @@ export class ChangesView extends ItemView {
     this.initializeCollapsed();
     const tree = buildTree(state.set.files);
     this.pruneCollapsed(tree);
-    this.renderNode(tree, container);
+    this.renderNode(tree, container, 1);
   }
 
-  private renderNode(node: TreeNode, container: HTMLElement): void {
-    for (const folder of sortedFolders(node)) this.renderFolder(folder, container);
-    for (const file of sortedFiles(node)) this.renderFile(file, container);
+  private renderNode(node: TreeNode, container: HTMLElement, level: number): void {
+    for (const folder of sortedFolders(node)) this.renderFolder(folder, container, level);
+    for (const file of sortedFiles(node)) this.renderFile(file, container, level);
   }
 
-  private renderFolder(folder: TreeNode, container: HTMLElement): void {
+  private renderFolder(folder: TreeNode, container: HTMLElement, level: number): void {
     const expanded = !this.collapsed.has(folder.path);
     const item = container.createDiv({ cls: 'tree-item nav-folder unc-folder' });
     item.dataset.path = folder.path;
     const row = item.createEl('button', {
       cls: 'tree-item-self unc-row unc-folder-row',
-      attr: { type: 'button', role: 'treeitem', 'aria-expanded': String(expanded) },
+      attr: { type: 'button', role: 'treeitem', 'aria-expanded': String(expanded), 'aria-level': String(level) },
     });
     row.dataset.path = folder.path;
     const chevron = row.createSpan({ cls: 'tree-item-icon unc-chevron' });
@@ -175,18 +176,18 @@ export class ChangesView extends ItemView {
       this.saveCollapsed();
       this.render();
     });
-    const children = item.createDiv({ cls: 'tree-item-children unc-children' });
-    if (expanded) this.renderNode(folder, children);
+    const children = item.createDiv({ cls: 'tree-item-children unc-children', attr: { role: 'group' } });
+    if (expanded) this.renderNode(folder, children, level + 1);
     else children.remove();
   }
 
-  private renderFile(file: ChangedFile, container: HTMLElement): void {
+  private renderFile(file: ChangedFile, container: HTMLElement, level: number): void {
     const active = this.host.controller.activePath() === file.path;
     const item = container.createDiv({ cls: `tree-item nav-file unc-file${active ? ' is-active' : ''}` });
     item.dataset.path = file.path;
     const row = item.createEl('button', {
       cls: 'tree-item-self unc-row',
-      attr: { type: 'button', role: 'treeitem' },
+      attr: { type: 'button', role: 'treeitem', 'aria-level': String(level) },
     });
     row.dataset.path = file.path;
     const label = BADGE_LABEL[file.status];

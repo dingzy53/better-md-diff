@@ -19,6 +19,7 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "npm run typecheck && node esbuild.config.mjs production",
+    "install:vault": "node scripts/install-to-vault.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint src --max-warnings 0",

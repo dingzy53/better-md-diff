@@ -30,8 +30,11 @@ the repository name.
 - New code lives in src/changes/ and tests/changes/. New CSS goes in one delimited block at the
   end of styles.css.
 - Edits to upstream files are limited to the "upstream touch points" listed in PLAN.md §6.
-  Any other upstream edit needs a one-line reason added to that list. Current extra touch point:
-  `tests/helpers/obsidian.ts` gains host-boundary stubs (`Component`, `debounce`) needed by new tests.
+  Any other upstream edit needs a one-line reason added to that list. Current extra touch points:
+  - `tests/helpers/obsidian.ts` gains host-boundary stubs (`Component`, `debounce`, `Menu`, `MarkdownView`, `Notice`, `TFolder`, `normalizePath`) needed by the new tests.
+  - `tests/helpers/obsidian-setting.ts` gains `addTextArea` for the exclude-patterns control.
+  - `tests/settings.test.ts` expects the appended "Changes list" group.
+  - `package.json` gains the `install:vault` script.
 - Do not reformat, rename, or reorder upstream code.
 - To sync: `git fetch upstream && git merge upstream/main`, resolve only the touch points,
   then `npm ci && npm run check`.
@@ -57,3 +60,7 @@ Before each phase, re-check the docs pages listed in PLAN.md §3. Record changes
   `obsidian@1.13.1` typings confirm `Workspace.ensureSideLeaf` (1.7.2), `FileManager.trashFile`
   (1.6.6), `Vault.process`, `Vault.getFileByPath`, and `PluginSettingTab.getSettingDefinitions`
   (1.13.0) as described. No policy differences found; no code changes required.
+- 2026-11-09: `eslint-plugin-obsidianmd`'s `hardcoded-config-path` rule rejects a literal `.obsidian/`
+  default. The default exclude pattern is therefore supplied at runtime from `Vault#configDir`
+  (`DEFAULT_CHANGES_SETTINGS.excludePatterns` itself is empty); behavior is unchanged, and the pattern
+  remains editable in settings.

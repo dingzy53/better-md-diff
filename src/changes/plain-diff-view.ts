@@ -185,7 +185,6 @@ export class PlainDiffView extends ItemView {
     }
 
     const rows = body.createDiv({ cls: 'unc-diff-rows' });
-    rows.setAttribute('role', 'table');
     diff.hunks.forEach((hunk, index) => {
       if (index) rows.createDiv({ cls: 'unc-diff-separator', text: '⋯' });
       for (const row of hunk.rows) {
