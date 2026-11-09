@@ -39,13 +39,16 @@ python scripts/record-demo.py --executable "/path/to/Obsidian"
 
 They create an isolated vault under `.test-vault/` and never attach to or modify the owner's vault.
 
-## Packaging
+## Releasing
 
-There is no release workflow. Build locally and install into a test vault:
+1. Bump `package.json`, `manifest.json`, `versions.json`, and the lockfile to the same version.
+2. Run `npm ci && npm run check`.
+3. Commit, then push the branch.
+4. Tag the commit with the exact version, without a `v` prefix, and push the tag:
 
-```bash
-npm run build
-OBSIDIAN_VAULT=/path/to/test-vault npm run install:vault
-```
+   ```bash
+   git tag -a 0.5.0 -m "0.5.0"
+   git push origin 0.5.0
+   ```
 
-Keep `package.json`, `manifest.json`, `versions.json`, and the lockfile on the same version.
+The tag starts `.github/workflows/release.yml`. It builds the plugin and publishes `main.js`, `manifest.json`, and `styles.css` on the GitHub release.

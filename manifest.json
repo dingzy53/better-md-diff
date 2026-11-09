@@ -1,9 +1,9 @@
 {
   "id": "uncommitted",
   "name": "Uncommitted",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "minAppVersion": "1.8.0",
-  "description": "List every file that differs from the last commit, with status badges and a simple diff. A personal fork of Better MD Diff.",
+  "description": "List every file that differs from the last commit, with status badges and a simple diff.",
   "author": "Ding Zheng Yuan",
   "authorUrl": "https://github.com/dingzy53",
   "isDesktopOnly": true

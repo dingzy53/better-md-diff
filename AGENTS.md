@@ -2,18 +2,16 @@
 
 ## What this repo is
 
-Uncommitted is a personal fork of [Better MD Diff](https://github.com/kamacheng/better-md-diff), MIT.
-It adds a left-sidebar list of files changed since `HEAD`.
+Uncommitted is a personal fork that adds a left-sidebar list of files changed since `HEAD`.
 The upstream diff panel, editor flags, and per-change restore remain in place.
-The plugin is for the owner's vault and is not published.
+The plugin is released from this repository and is not submitted to the community directory.
 
 ## Hard rules
 
-- Never push to, open issues or pull requests against, or comment on `kamacheng/better-md-diff`.
+- Never push to, open issues or pull requests against, or comment on the upstream repository.
   The `upstream` remote is fetch-only; its push URL stays `DISABLED`.
 - Never submit this plugin to the Obsidian community directory or `obsidianmd/obsidian-releases`.
-- Never push tags or create GitHub releases.
-- Never push to `origin` unless the owner asks in this session.
+- Push to `origin`, tags, and GitHub releases only when the owner asks in this session.
 - Never add network requests, telemetry, or analytics.
 - Never install a build into the owner's real vault. Use an isolated test vault.
 - Keep Git operations in the plugin read-only: status, diff, ls-files, ls-tree, cat-file, rev-parse.
@@ -57,6 +55,13 @@ Use `getFileByPath`, not `getFiles().find`.
 Use `normalizePath` for user paths.
 Style with CSS classes and Obsidian CSS variables; no inline styles.
 Keep `isDesktopOnly: true` and `minAppVersion: 1.8.0`.
+
+## Releasing
+
+- Use a tag that exactly matches `manifest.json`, without a `v` prefix.
+- `.github/workflows/release.yml` builds and publishes `main.js`, `manifest.json`, and `styles.css`.
+- Push the workflow before the first tag so the tag can trigger it.
+- Keep the release assets unchanged after the workflow publishes them.
 
 ## Workflow
 

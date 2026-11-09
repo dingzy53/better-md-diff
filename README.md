@@ -1,5 +1,7 @@
 # Uncommitted
 
+[![Release](https://img.shields.io/github/v/release/dingzy53/better-md-diff?display_name=tag)](https://github.com/dingzy53/better-md-diff/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/dingzy53/better-md-diff/total)](https://github.com/dingzy53/better-md-diff/releases)
 [![Obsidian 1.8.0+](https://img.shields.io/badge/Obsidian-1.8.0%2B-7C3AED?logo=obsidian&logoColor=white)](https://obsidian.md)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Desktop only](https://img.shields.io/badge/platform-desktop-lightgrey)](#requirements)
@@ -30,7 +32,13 @@ The diff panel, editor flags, and per-change restore are upstream behavior. The 
 
 ## Installation
 
-This fork is not published to the Obsidian community directory. Build and install it locally:
+This fork is not published to the Obsidian community directory. Install a release manually:
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/dingzy53/better-md-diff/releases/latest).
+2. Create `<vault>/.obsidian/plugins/uncommitted/` and put the three files there.
+3. In Obsidian, disable **Better MD Diff** if it is enabled, then enable **Uncommitted** under **Settings → Community plugins**.
+
+### From source
 
 ```bash
 git clone git@github.com:dingzy53/better-md-diff.git
@@ -40,9 +48,7 @@ npm run build
 OBSIDIAN_VAULT=/path/to/your/vault npm run install:vault
 ```
 
-Disable **Better MD Diff** in **Settings → Community plugins** before installing, then enable **Uncommitted**. The install script stops if Better MD Diff is enabled.
-
-You can also copy `dist/uncommitted/` into `<vault>/.obsidian/plugins/uncommitted/` yourself.
+The install script stops if Better MD Diff is enabled.
 
 > **Never enable both plugins.** Uncommitted keeps upstream's internal view type (`better-md-diff-view`) so the fork stays easy to merge, so Obsidian treats both plugins as registering the same view.
 
@@ -88,7 +94,7 @@ All commands are palette-only, with no default hotkeys:
 - **Desktop only.** The plugin needs a local Git executable and a filesystem vault.
 - **Repository root.** A vault inside a larger repository is rejected with an explanatory message.
 - **No Git writes.** Staging, commits, pulls, and pushes are left to a terminal.
-- **No release workflow.** This personal fork has no tags, releases, or community submission.
+- **Not in the community directory.** Install from [GitHub releases](https://github.com/dingzy53/better-md-diff/releases).
 - **Upstream review is not wired in.** The accepted-baseline review modules and GitLab comparison remain unused.
 
 ## Development
@@ -107,11 +113,11 @@ New code lives in `src/changes/` and `tests/changes/`. Do not reformat or reorde
 
 ### Releasing
 
-There is no release workflow and no tag. Build `dist/uncommitted/` and install it locally with `npm run install:vault`.
+Use a tag that exactly matches `manifest.json`, without a `v` prefix. Pushing the tag runs [release.yml](.github/workflows/release.yml), which publishes `main.js`, `manifest.json`, and `styles.css` on the GitHub release.
 
 ## Credits
 
-[Better MD Diff](https://github.com/kamacheng/better-md-diff) by kamacheng, used under the MIT license.
+Original project and author: [kamacheng/better-md-diff](https://github.com/kamacheng/better-md-diff) by kamacheng, used under the MIT license.
 
 The demo uses the opening of Jane Austen's *Pride and Prejudice* (1813), public domain in the USA: [Project Gutenberg](https://www.gutenberg.org/ebooks/1342).
 
