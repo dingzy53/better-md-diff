@@ -1,6 +1,11 @@
 import { editorInfoField, FileSystemAdapter, getLanguage as getObsidianLanguage, MarkdownView, Notice, Plugin, requireApiVersion, setTooltip, TFile, type Command } from 'obsidian';
 import { editorDiffExtension } from './editor';
-import { GitBaselineReader, readGitBaseline, type BaselineRead } from './git';
+import { GitBaselineReader, readGitBaseline, GitReadError, type BaselineRead, type GitBaseline } from './git';
+// fork: changes list
+import { installChanges } from './changes';
+import type { ChangesController } from './changes/controller';
+import { DEFAULT_CHANGES_SETTINGS, normalizeChangesSettings } from './changes/settings';
+import type { ChangesSettings } from './changes/types';
 import { DIFF_ICON, DIFF_VIEW, DiffPanel } from './panel';
 import { DiffSettingTab } from './settings';
 import { DEFAULT_SETTINGS, normalizeSettings, type DiffSettings } from './options';
@@ -13,6 +18,9 @@ import { languageForObsidian, LocalizedError, onLanguageChange, setLanguage, t, 
 
 export default class BetterMdDiff extends Plugin {
   settings: DiffSettings = { ...DEFAULT_SETTINGS };
+  // fork: changes list settings live under the `changes` key of data.json.
+  changesSettings: ChangesSettings = { ...DEFAULT_CHANGES_SETTINGS };
+  private changesController?: ChangesController;
   store!: DiffStore;
   private selectedPath?: string;
   private timers = new Map<string, number>();
@@ -33,7 +41,10 @@ export default class BetterMdDiff extends Plugin {
 
   async onload(): Promise<void> {
     this.syncLanguage();
-    this.settings = normalizeSettings(await this.loadData());
+    // fork: read both upstream settings and the changes list settings once.
+    const raw = await this.loadData() as Record<string, unknown> | null;
+    this.changesSettings = normalizeChangesSettings(raw?.changes, this.changesDefaults());
+    this.settings = normalizeSettings(raw);
     this.appliedReadSettings = { ...this.settings };
     const adapter = this.app.vault.adapter;
     if (!(adapter instanceof FileSystemAdapter)) {
@@ -42,7 +53,7 @@ export default class BetterMdDiff extends Plugin {
     }
     this.reader = new GitBaselineReader(adapter.getBasePath(), this.settings.gitPath, this.settings);
     this.register(() => this.reader.dispose());
-    this.store = new DiffStore((path) => this.reader.read(path), this.settings.contextLines, this.settings);
+    this.store = new DiffStore((path) => this.readBaselineWithUntracked(path), this.settings.contextLines, this.settings);
     this.register(() => this.store.dispose());
     this.registerView(DIFF_VIEW, (leaf) => new DiffPanel(leaf, {
       store: this.store,
@@ -125,6 +136,14 @@ export default class BetterMdDiff extends Plugin {
       if (this.selectedPath === file.path) this.setSelected(undefined);
       this.forget(file.path);
     }));
+    // fork: single hook-in point for the changes list.
+    this.changesController = installChanges(this, {
+      openDiff: (path) => this.openDiff(path),
+      vaultRoot: adapter.getBasePath(),
+      settings: () => this.settings,
+      changesSettings: () => this.changesSettings,
+      saveChangesSettings: () => this.saveChangesSettings(),
+    });
     this.restartPolling();
     this.registerDomEvent(window, 'focus', () => { this.syncLanguage(); void this.refreshOpenFiles(); });
     this.app.workspace.onLayoutReady(() => {
@@ -172,6 +191,30 @@ export default class BetterMdDiff extends Plugin {
     }, this.settings.editDelayMs));
   }
 
+  // fork: untracked notes diff against an empty baseline when the list shows them.
+  private changesDefaults(): ChangesSettings {
+    return { ...DEFAULT_CHANGES_SETTINGS, excludePatterns: [`${this.app.vault.configDir}/`] };
+  }
+
+  private untrackedBaseline(error: unknown): GitBaseline {
+    if (error instanceof GitReadError && error.reason === 'untracked' && this.changesSettings.showUntracked) {
+      return { content: '', head: null, isNew: true };
+    }
+    throw error;
+  }
+
+  private async readBaselineWithUntracked(path: string): Promise<GitBaseline> {
+    try { return await this.reader.read(path); }
+    catch (error) { return this.untrackedBaseline(error); }
+  }
+
+  private wrapBaselineRead(read: BaselineRead): BaselineRead {
+    return async (path) => {
+      try { return await read(path); }
+      catch (error) { return this.untrackedBaseline(error); }
+    };
+  }
+
   private async currentContent(file: TFile): Promise<string> {
     const active = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (active?.file?.path === file.path) return active.getViewData();
@@ -208,7 +251,7 @@ export default class BetterMdDiff extends Plugin {
       if (this.selectedPath) paths.add(this.selectedPath);
       for (const path of this.trackedPaths) if (!paths.has(path)) this.forget(path);
       // One metadata snapshot per repository, then read each editor's latest buffer.
-      const readBaseline = this.reader.batch([...paths]);
+      const readBaseline = this.wrapBaselineRead(this.reader.batch([...paths]));
       for (const path of paths) {
         if (this.stopped) break;
         if (this.app.workspace.getLeavesOfType('markdown').some((leaf) => leaf.view instanceof MarkdownView && leaf.view.file?.path === path) || this.selectedPath === path) await this.refresh(path, true, readBaseline);
@@ -329,8 +372,10 @@ export default class BetterMdDiff extends Plugin {
 
   async applySettings(): Promise<void> {
     this.settings = normalizeSettings(this.settings);
-    await this.saveData(this.settings);
+    // fork: keep the changes list settings alongside upstream settings.
+    await this.saveData({ ...this.settings, changes: this.changesSettings });
     if (this.stopped) return;
+    this.changesController?.requestRefresh();
     this.syncLanguage();
     this.restartPolling();
     this.store.updatePresentation(this.settings.contextLines, this.settings);
@@ -345,6 +390,16 @@ export default class BetterMdDiff extends Plugin {
       for (const path of this.trackedPaths) this.store.forget(path);
       await this.refreshOpenFiles();
     }
+  }
+
+  // fork: persist the changes list settings through the same data.json document.
+  async saveChangesSettings(): Promise<void> {
+    const showUntracked = this.changesSettings.showUntracked;
+    this.changesSettings = normalizeChangesSettings(this.changesSettings, this.changesDefaults());
+    await this.saveData({ ...this.settings, changes: this.changesSettings });
+    if (this.stopped) return;
+    if (showUntracked !== this.changesSettings.showUntracked) void this.refreshOpenFiles();
+    this.changesController?.requestRefresh();
   }
 
   onunload(): void {
