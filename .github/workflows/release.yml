@@ -44,4 +44,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag || github.ref_name }}
-        run: gh release create "$TAG" main.js manifest.json styles.css --title "Uncommitted $TAG" --generate-notes --verify-tag --latest
+        run: gh release create "$TAG" main.js manifest.json styles.css --title "$TAG" --generate-notes --verify-tag --latest
