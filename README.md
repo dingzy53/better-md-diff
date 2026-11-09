@@ -1,4 +1,6 @@
-# Better MD Diff
+# Uncommitted
+
+> **Personal fork.** Uncommitted is a personal fork of [Better MD Diff](https://github.com/kamacheng/better-md-diff) by kamacheng. It is not affiliated with, published by, or supported by the original author. Do not report issues upstream.
 
 [简体中文](README.zh-CN.md)
 

@@ -1,17 +1,17 @@
 {
-  "name": "better-md-diff",
-  "version": "0.4.1",
+  "name": "uncommitted",
+  "version": "0.1.0",
   "private": true,
-  "description": "Markdown Git HEAD diffs with paired review and per-change restoration for Obsidian.",
+  "description": "A personal fork of Better MD Diff that lists every file changed since the last commit.",
   "license": "MIT",
-  "author": "kamacheng",
-  "homepage": "https://github.com/kamacheng/better-md-diff",
+  "author": "Ding Zheng Yuan",
+  "homepage": "https://github.com/dingzy53/better-md-diff",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kamacheng/better-md-diff.git"
+    "url": "git+https://github.com/dingzy53/better-md-diff.git"
   },
   "bugs": {
-    "url": "https://github.com/kamacheng/better-md-diff/issues"
+    "url": "https://github.com/dingzy53/better-md-diff/issues"
   },
   "engines": {
     "node": "^22.12.0 || >=24.0.0"

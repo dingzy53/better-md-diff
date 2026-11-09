@@ -12,15 +12,15 @@ const context = await esbuild.context({
   outfile: 'main.js',
   sourcemap: production ? false : 'inline',
   logLevel: 'info',
-  banner: { js: `/*! Better MD Diff\n${await readFile('LICENSE', 'utf8')}\nBundled dependency: diff\n${await readFile('node_modules/diff/LICENSE', 'utf8')}\n*/` },
+  banner: { js: `/*! Uncommitted\n${await readFile('LICENSE', 'utf8')}\nBundled dependency: diff\n${await readFile('node_modules/diff/LICENSE', 'utf8')}\n*/` },
 });
 
 if (production) {
   await context.rebuild();
   await context.dispose();
-  await mkdir('dist/better-md-diff', { recursive: true });
+  await mkdir('dist/uncommitted', { recursive: true });
   for (const file of ['main.js', 'manifest.json', 'styles.css']) {
-    await copyFile(file, `dist/better-md-diff/${file}`);
+    await copyFile(file, `dist/uncommitted/${file}`);
   }
 } else {
   await context.watch();

@@ -1,10 +1,10 @@
 {
-  "id": "better-md-diff",
-  "name": "Better MD Diff",
-  "version": "0.4.1",
+  "id": "uncommitted",
+  "name": "Uncommitted",
+  "version": "0.1.0",
   "minAppVersion": "1.8.0",
-  "description": "Compare Markdown with Git HEAD using paired diffs, synchronized navigation, and confirmed per-change restoration.",
-  "author": "kamac",
-  "authorUrl": "https://github.com/kamacheng",
+  "description": "List every file that differs from the last commit, with status badges and a simple diff. A personal fork of Better MD Diff.",
+  "author": "Ding Zheng Yuan (fork of Better MD Diff by kamac)",
+  "authorUrl": "https://github.com/dingzy53",
   "isDesktopOnly": true
 }

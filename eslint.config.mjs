@@ -10,7 +10,7 @@ export default defineConfig([
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
     rules: {
-      'obsidianmd/ui/sentence-case': ['warn', { brands: ['Better MD Diff', 'Markdown', 'Git'], acronyms: ['HEAD', 'PATH', 'Tab'] }],
+      'obsidianmd/ui/sentence-case': ['warn', { brands: ['Uncommitted', 'Better MD Diff', 'Markdown', 'Git'], acronyms: ['HEAD', 'PATH', 'Tab'] }],
     },
   },
 ]);
