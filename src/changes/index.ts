@@ -11,6 +11,11 @@ export interface ChangesDeps {
   settings(): DiffSettings;
   changesSettings(): ChangesSettings;
   saveChangesSettings(): Promise<void>;
+  saveCollapsedFolders(paths: string[]): Promise<void>;
+}
+
+interface SettingsHost {
+  setting?: { open(): void; openTabById?(id: string): void };
 }
 
 function statusText(state: ChangesState): string {
@@ -34,6 +39,7 @@ export function installChanges(plugin: Plugin, deps: ChangesDeps): ChangesContro
     settings: () => deps.settings(),
     changesSettings: () => deps.changesSettings(),
     saveChangesSettings: () => deps.saveChangesSettings(),
+    saveCollapsedFolders: (paths) => deps.saveCollapsedFolders(paths),
   });
 
   const openList = async (): Promise<void> => {
@@ -48,9 +54,20 @@ export function installChanges(plugin: Plugin, deps: ChangesDeps): ChangesContro
     new Notice("This file type isn't supported yet.");
   };
 
+  const openSettings = (): void => {
+    const host = plugin.app as typeof plugin.app & SettingsHost;
+    host.setting?.open();
+    host.setting?.openTabById?.(plugin.manifest.id);
+  };
+
   plugin.addChild(controller);
   controller.load(); // Idempotent: addChild already loads it when the plugin is loaded.
-  plugin.registerView(CHANGES_VIEW, (leaf) => new ChangesView(leaf, { controller, open: openChanged }));
+  plugin.registerView(CHANGES_VIEW, (leaf) => new ChangesView(leaf, {
+    controller,
+    open: openChanged,
+    discard: () => new Notice("Discard isn't available yet."),
+    openSettings,
+  }));
   plugin.addRibbonIcon(CHANGES_ICON, 'Open changes list', () => { void openList(); });
 
   plugin.addCommand({

@@ -42,6 +42,7 @@ function makeHost(overrides: Partial<ChangesSettings> = {}) {
     settings: () => ({ ...DEFAULT_SETTINGS }),
     changesSettings: () => settings,
     saveChangesSettings: async () => {},
+    saveCollapsedFolders: async () => {},
   };
   return {
     host,

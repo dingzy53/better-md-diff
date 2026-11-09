@@ -184,11 +184,11 @@ export type TreeRow =
   | { type: 'folder'; name: string; path: string; count: number; depth: number; expanded: boolean; node: TreeNode }
   | { type: 'file'; file: ChangedFile; depth: number };
 
-function sortedFolders(node: TreeNode): TreeNode[] {
+export function sortedFolders(node: TreeNode): TreeNode[] {
   return [...node.children.values()].sort((left, right) => comparePaths(left.name, right.name));
 }
 
-function sortedFiles(node: TreeNode): ChangedFile[] {
+export function sortedFiles(node: TreeNode): ChangedFile[] {
   return [...node.files].sort((left, right) => comparePaths(left.path, right.path));
 }
 

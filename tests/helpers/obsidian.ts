@@ -1,5 +1,47 @@
 // Test-only runtime host boundary: the npm Obsidian SDK ships declarations only.
 export function setIcon(element: HTMLElement, name: string): void { element.dataset.icon = name; }
+export function setTooltip(element: HTMLElement, tooltip: string): void { element.dataset.tooltip = tooltip; }
+
+export class MenuItem {
+  title = '';
+  disabled = false;
+  warning = false;
+  icon = '';
+  isLabel = false;
+  callback?: () => void;
+
+  setTitle(title: string | DocumentFragment): this { this.title = String(title); return this; }
+  setIcon(icon: string | null): this { this.icon = icon ?? ''; return this; }
+  setChecked(_checked: boolean | null): this { return this; }
+  setDisabled(disabled: boolean): this { this.disabled = disabled; return this; }
+  setWarning(warning: boolean): this { this.warning = warning; return this; }
+  setIsLabel(label: boolean): this { this.isLabel = label; return this; }
+  onClick(callback: () => void): this { this.callback = callback; return this; }
+  setSection(_section: string): this { return this; }
+}
+
+export class Menu {
+  static instances: Menu[] = [];
+  items: MenuItem[] = [];
+
+  constructor() { Menu.instances.push(this); }
+
+  addItem(callback: (item: MenuItem) => unknown): this {
+    const item = new MenuItem();
+    callback(item);
+    this.items.push(item);
+    return this;
+  }
+  addSeparator(): this { return this; }
+  setNoIcon(): this { return this; }
+  setUseNativeMenu(_native: boolean): this { return this; }
+  setParentElement(_element: HTMLElement): this { return this; }
+  showAtMouseEvent(_event: MouseEvent): this { return this; }
+  showAtPosition(_position: { x: number; y: number }): this { return this; }
+  hide(): this { return this; }
+  close(): void {}
+  onHide(_callback: () => unknown): void {}
+}
 
 export interface MockDebouncer<T extends unknown[]> {
   (...args: T): void;
@@ -89,6 +131,7 @@ export class ItemView {
   containerEl = this.contentEl;
   private cleanups: (() => void)[] = [];
   register(cleanup: () => void): void { this.cleanups.push(cleanup); }
+  registerEvent(ref: { dispose?: () => void }): void { this.register(() => ref.dispose?.()); }
   registerDomEvent(target: EventTarget, type: string, listener: EventListener): void {
     target.addEventListener(type, listener);
     this.register(() => target.removeEventListener(type, listener));

@@ -17,6 +17,7 @@ export interface ChangesControllerHost {
   settings(): DiffSettings;
   changesSettings(): ChangesSettings;
   saveChangesSettings(): Promise<void>;
+  saveCollapsedFolders(paths: string[]): Promise<void>;
 }
 
 type Listener = (state: ChangesState) => void;
@@ -159,5 +160,13 @@ export class ChangesController extends Component {
 
   settings(): DiffSettings {
     return this.host.settings();
+  }
+
+  changesSettings(): ChangesSettings {
+    return this.host.changesSettings();
+  }
+
+  saveCollapsedFolders(paths: string[]): Promise<void> {
+    return this.host.saveCollapsedFolders(paths);
   }
 }

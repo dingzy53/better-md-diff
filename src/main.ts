@@ -143,6 +143,7 @@ export default class BetterMdDiff extends Plugin {
       settings: () => this.settings,
       changesSettings: () => this.changesSettings,
       saveChangesSettings: () => this.saveChangesSettings(),
+      saveCollapsedFolders: (paths) => this.saveCollapsedFolders(paths),
     });
     this.restartPolling();
     this.registerDomEvent(window, 'focus', () => { this.syncLanguage(); void this.refreshOpenFiles(); });
@@ -390,6 +391,12 @@ export default class BetterMdDiff extends Plugin {
       for (const path of this.trackedPaths) this.store.forget(path);
       await this.refreshOpenFiles();
     }
+  }
+
+  // fork: tree collapse state is saved without triggering a Git refresh.
+  async saveCollapsedFolders(paths: string[]): Promise<void> {
+    this.changesSettings = { ...this.changesSettings, collapsedFolders: paths };
+    await this.saveData({ ...this.settings, changes: this.changesSettings });
   }
 
   // fork: persist the changes list settings through the same data.json document.
