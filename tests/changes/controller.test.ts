@@ -15,7 +15,7 @@ function deferredReader() {
   const readChangeSet = vi.fn((_settings: ChangesSettings, _isExcluded: (path: string) => boolean) =>
     new Promise<ChangeSet>((resolve, reject) => { calls.push({ resolve, reject }); }));
   const dispose = vi.fn();
-  const reader: ChangesReader = { readChangeSet, dispose };
+  const reader: ChangesReader = { readChangeSet, readHeadBlob: async () => null, dispose };
   return { reader, readChangeSet, dispose, calls };
 }
 

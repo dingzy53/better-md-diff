@@ -7,6 +7,7 @@ import type { ChangeSet, ChangedFile, ChangesErrorKind, ChangesSettings, Changes
 
 export interface ChangesReader {
   readChangeSet(settings: ChangesSettings, isExcluded: (path: string) => boolean): Promise<ChangeSet>;
+  readHeadBlob(path: string): Promise<Buffer | null>;
   dispose(): void;
 }
 
@@ -152,6 +153,10 @@ export class ChangesController extends Component {
 
   adjacent(direction: -1 | 1): ChangedFile | undefined {
     return adjacentFile(this.files(), this.activePath(), direction);
+  }
+
+  headBlob(path: string): Promise<Buffer | null> {
+    return this.reader.readHeadBlob(path);
   }
 
   saveSettings(): Promise<void> {

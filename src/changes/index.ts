@@ -2,6 +2,8 @@ import { Notice, type Plugin } from 'obsidian';
 import type { DiffSettings } from '../options';
 import { ChangesController } from './controller';
 import { CHANGES_ICON, CHANGES_VIEW, ChangesView } from './changes-view';
+import { openChangedFile } from './open';
+import { PLAIN_DIFF_VIEW, PlainDiffView } from './plain-diff-view';
 import type { ChangedFile, ChangesSettings, ChangesState } from './types';
 
 export interface ChangesDeps {
@@ -46,12 +48,14 @@ export function installChanges(plugin: Plugin, deps: ChangesDeps): ChangesContro
     await plugin.app.workspace.ensureSideLeaf(CHANGES_VIEW, 'left', { active: true, reveal: true });
   };
 
+  const openPlainDiff = async (path: string): Promise<void> => {
+    const leaf = await plugin.app.workspace.ensureSideLeaf(PLAIN_DIFF_VIEW, 'right', { active: true, reveal: true, state: { path } });
+    if (leaf.view instanceof PlainDiffView) await leaf.view.setPath(path);
+  };
+
   const openChanged = (file: ChangedFile): void => {
-    if (file.status !== 'D' && file.path.toLowerCase().endsWith('.md')) {
-      void deps.openDiff(file.path);
-      return;
-    }
-    new Notice("This file type isn't supported yet.");
+    void openChangedFile(file, { app: plugin.app, openDiff: (path) => deps.openDiff(path), openPlainDiff })
+      .catch((error: unknown) => { new Notice(error instanceof Error ? error.message : 'Unable to open this file.'); });
   };
 
   const openSettings = (): void => {
@@ -67,6 +71,11 @@ export function installChanges(plugin: Plugin, deps: ChangesDeps): ChangesContro
     open: openChanged,
     discard: () => new Notice("Discard isn't available yet."),
     openSettings,
+  }));
+  plugin.registerView(PLAIN_DIFF_VIEW, (leaf) => new PlainDiffView(leaf, {
+    controller,
+    app: plugin.app,
+    settings: () => deps.settings(),
   }));
   plugin.addRibbonIcon(CHANGES_ICON, 'Open changes list', () => { void openList(); });
 

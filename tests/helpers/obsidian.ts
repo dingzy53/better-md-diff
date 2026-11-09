@@ -71,6 +71,10 @@ export function debounce<T extends unknown[]>(callback: (...args: T) => void, ti
   return debounced;
 }
 
+export class MarkdownView {
+  file: { path: string } | null = null;
+}
+
 export class Component {
   private cleanupCallbacks: (() => void)[] = [];
   private children: Component[] = [];
@@ -136,5 +140,7 @@ export class ItemView {
     target.addEventListener(type, listener);
     this.register(() => target.removeEventListener(type, listener));
   }
+  getState(): Record<string, unknown> { return {}; }
+  async setState(_state: unknown, _result: unknown): Promise<void> {}
   unload(): void { for (const cleanup of this.cleanups.splice(0)) cleanup(); }
 }
