@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 
 const json = async (file) => JSON.parse(await readFile(file, 'utf8'));
 const manifest = await json('manifest.json');
@@ -34,7 +34,8 @@ for (const license of ['LICENSE', 'node_modules/diff/LICENSE']) {
   assert(bundle.includes((await readFile(license, 'utf8')).trim()), `Missing bundled license: ${license}`);
 }
 const readme = await readFile('README.md', 'utf8');
-assert(readme.includes('(README.zh-CN.md)'), 'Missing Chinese README link');
-assert(readme.includes('## Installation') && readme.includes('## Usage'), 'Keep English quick-start sections discoverable by community scans');
-assert((await readFile('README.zh-CN.md', 'utf8')).includes('(README.md)'), 'Missing English README link');
-console.log(`Release ${manifest.version} validated. Use tag ${manifest.version} (without a v prefix).`);
+for (const section of ['## Features', '## Requirements', '## Installation', '## Usage', '## Privacy and security', '## Limitations', '## Development', '## License']) {
+  assert(readme.includes(section), `Missing README section: ${section}`);
+}
+await assert.rejects(access('README.zh-CN.md'), { code: 'ENOENT' });
+console.log(`Build ${manifest.version} validated.`);

@@ -1,7 +1,6 @@
 import { assertTextSize, computeDiff, normalizeText, type DocumentDiff } from './diff';
 import { DEFAULT_SETTINGS, type DocumentLimits } from './options';
 import type { BaselineRead, GitBaseline } from './git';
-import { t } from './i18n';
 
 export type DiffState =
   | { status: 'ready'; path: string; current: string; baseline: GitBaseline; diff: DocumentDiff }
@@ -87,7 +86,7 @@ export class DiffStore {
   }
 
   private errorState(path: string, error: unknown): DiffState {
-    return { status: 'error', path, get message() { return error instanceof Error ? error.message : t('无法计算差异。'); } };
+    return { status: 'error', path, get message() { return error instanceof Error ? error.message : 'Unable to compute the diff.'; } };
   }
 
   reportError(path: string, message: string): void {

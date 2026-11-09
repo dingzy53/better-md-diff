@@ -4,7 +4,7 @@ import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path
 import { promisify } from 'node:util';
 import { assertTextSize } from './diff';
 import { DEFAULT_SETTINGS, type DocumentLimits } from './options';
-import { LocalizedError, type MessageKey } from './i18n';
+import { PluginError, type ErrorValues } from './errors';
 
 const exec = promisify(execFile);
 
@@ -15,17 +15,17 @@ export interface GitBaseline {
 }
 export type BaselineRead = (path: string) => Promise<GitBaseline>;
 
-export class GitReadError extends LocalizedError {
-  constructor(public readonly reason: 'untracked' | 'unavailable' | 'repository' | 'conflict' | 'read', key: MessageKey, values?: Record<string, string | number>) { super(key, values); }
+export class GitReadError extends PluginError {
+  constructor(public readonly reason: 'untracked' | 'unavailable' | 'repository' | 'conflict' | 'read', message: string, values?: ErrorValues) { super(message, values); }
 }
 interface ProcessError extends Error { code?: string | number; stderr?: string; killed?: boolean }
 interface LocatedFile { vaultPath: string; path: string }
 
 function readError(error: unknown): Error {
-  if (error instanceof LocalizedError) return error;
+  if (error instanceof PluginError) return error;
   const failure = error as ProcessError;
   const detail = failure.stderr?.trim().slice(0, 500) || failure.message;
-  return detail ? new GitReadError('read', 'Git 读取失败：{detail}', { detail }) : new GitReadError('read', '读取 Git 失败，请刷新重试。');
+  return detail ? new GitReadError('read', 'Git read failed: {detail}', { detail }) : new GitReadError('read', 'Failed to read Git. Refresh and try again.');
 }
 
 /** One owner per plugin. Only immutable blob contents survive a refresh cycle. */
@@ -48,7 +48,7 @@ export class GitBaselineReader {
       pending ??= this.readBatch([...new Set(paths)]);
       const result = (await pending).get(path);
       this.controller.signal.throwIfAborted();
-      if (!result) throw new GitReadError('read', '文档不在本次刷新范围内。');
+      if (!result) throw new GitReadError('read', 'The document is not in this refresh batch.');
       if (result instanceof Error) throw result;
       return result;
     };
@@ -65,9 +65,9 @@ export class GitBaselineReader {
       return stdout;
     } catch (error) {
       const failure = error as ProcessError;
-      if (failure.code === 'ENOENT') throw new GitReadError('unavailable', '找不到 Git。请安装 Git，或在插件设置中填写 Git 可执行文件的完整路径。');
-      if (failure.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') throw new GitReadError('read', 'Git 输出超过当前读取上限（{size} MiB），请在插件设置中调整文档大小上限。', { size: this.limits.maxFileMiB });
-      if (failure.killed) throw new GitReadError('read', '读取 Git 超时，请检查仓库或 Git 路径后刷新。');
+      if (failure.code === 'ENOENT') throw new GitReadError('unavailable', 'Git was not found. Install Git or set its full executable path in the plugin settings.');
+      if (failure.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') throw new GitReadError('read', 'Git output exceeds the current read limit ({size} MiB). Increase the document size limit in plugin settings.', { size: this.limits.maxFileMiB });
+      if (failure.killed) throw new GitReadError('read', 'Git timed out. Check the repository or executable path, then refresh.');
       throw error;
     }
   }
@@ -81,7 +81,7 @@ export class GitBaselineReader {
       try {
         const absolute = resolve(this.vaultRoot, vaultPath);
         const inside = relative(this.vaultRoot, absolute);
-        if (inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside)) throw new GitReadError('read', '文档路径不在当前仓库目录内。');
+        if (inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside)) throw new GitReadError('read', 'The document path is outside the vault.');
         let directory: string;
         let root: string;
         try {
@@ -91,7 +91,7 @@ export class GitBaselineReader {
           roots.set(directory, root);
         } catch (error) {
           if (error instanceof GitReadError) throw error;
-          throw new GitReadError('repository', '无法访问 Git 仓库。请确认文档位于仓库内，且仓库权限与 safe.directory 配置正确。');
+          throw new GitReadError('repository', 'Cannot access the Git repository. Check the document location, permissions, and safe.directory configuration.');
         }
         const files = repositories.get(root) ?? [];
         files.push({ vaultPath, path: relative(root, resolve(directory, basename(absolute))).split(sep).join('/') });
@@ -112,13 +112,13 @@ export class GitBaselineReader {
           for (const file of chunk) {
             try {
               const entries = index.get(file.path);
-              if (!entries?.length) throw new GitReadError('untracked', '此文档尚未纳入 Git 管理。请先执行 git add，再刷新差异。');
-              if (entries.some((entry) => !/^\d+ [0-9a-f]+ 0$/.test(entry))) throw new GitReadError('conflict', '此文档存在未解决的合并冲突，请解决冲突后刷新。');
-              if (entries.some((entry) => !/^100(?:644|755) /.test(entry))) throw new GitReadError('read', '暂不支持符号链接或子模块文件。');
+              if (!entries?.length) throw new GitReadError('untracked', 'This document is not tracked by Git. Run git add, then refresh the diff.');
+              if (entries.some((entry) => !/^\d+ [0-9a-f]+ 0$/.test(entry))) throw new GitReadError('conflict', 'This document has unresolved merge conflicts. Resolve them, then refresh.');
+              if (entries.some((entry) => !/^100(?:644|755) /.test(entry))) throw new GitReadError('read', 'Symlinks and submodule files are not supported.');
               const object = tree.get(file.path)?.[0];
               if (!object) { results.set(file.vaultPath, { content: '', head, isNew: true }); continue; }
               const blob = /^100(?:644|755) blob ([0-9a-f]+)$/.exec(object)?.[1];
-              if (!blob) throw new GitReadError('read', 'HEAD 中的对象不是普通 Markdown 文件。');
+              if (!blob) throw new GitReadError('read', 'The HEAD object is not a regular Markdown file.');
               results.set(file.vaultPath, { content: await this.readBlob(root, blob), head, isNew: false });
             } catch (error) { results.set(file.vaultPath, readError(error)); }
           }

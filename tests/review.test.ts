@@ -15,7 +15,7 @@ describe('document acceptance', () => {
     await expect(review.reject(snapshot, snapshot.diff.changes[0]!, {
       getValue: () => { review.dispose(); return 'new\n'; },
       apply: () => { applied = true; },
-    })).rejects.toThrow('关闭');
+    })).rejects.toThrow('closed');
     expect(applied).toBe(false);
   });
 
@@ -32,7 +32,7 @@ describe('document acceptance', () => {
   it.each([
     ['', 'new file\n'], ['a\nb\n', 'prefix\na\nB\n'], ['a\nb\n', 'a\n'],
     ['a', 'a\n'], ['a\n', 'a'], ['a\n', ''], ['\n\n', '\n'],
-    ['中文 👩‍💻\n最后一行', '中文 🧪\n增加\n最后一行\n'],
+    ['Café 👩‍💻\nLast line', 'Café 🧪\nAdded\nLast line\n'],
   ])('accepts independent edits in reverse order from %j to %j', async (before, current) => {
     const { review } = document(before);
     let snapshot = review.snapshot(current, 0);
@@ -85,9 +85,9 @@ describe('document acceptance', () => {
     const change = snapshot.diff.changes[0]!;
     let current = 'new\n', applied = false;
     const target = { getValue: () => current, apply: () => { applied = true; } };
-    await expect(review.accept(snapshot, { ...change }, () => current)).rejects.toThrow('已变化');
+    await expect(review.accept(snapshot, { ...change }, () => current)).rejects.toThrow('changed');
     current = 'later\n';
-    await expect(review.reject(snapshot, change, target)).rejects.toThrow('已变化');
+    await expect(review.reject(snapshot, change, target)).rejects.toThrow('changed');
     current = 'new\n';
     const controller = new AbortController(); controller.abort();
     await expect(review.reject(snapshot, change, target, controller.signal)).rejects.toThrow();
@@ -114,11 +114,11 @@ describe('document acceptance', () => {
     for (let sample = 0; sample < 80; sample++) {
       const before: string[] = [], after: string[] = [];
       for (let line = 0; line < 20; line++) {
-        const text = `原文 ${line} 🧪`;
+        const text = `Source ${line} 🧪`;
         before.push(text);
-        if (random() < 0.3) after.push(`插入 ${line}`);
+        if (random() < 0.3) after.push(`Insert ${line}`);
         if (random() < 0.2) continue;
-        after.push(random() < 0.3 ? `改写 ${line}` : text);
+        after.push(random() < 0.3 ? `Edit ${line}` : text);
       }
       const current = after.join('\n') + (random() < 0.5 ? '\n' : '');
       const { review } = document(before.join('\n') + (random() < 0.5 ? '\n' : ''));
@@ -149,15 +149,15 @@ describe('document acceptance', () => {
   });
 
   it('validates restored recognition and undo data before using it', () => {
-    expect(() => new ReviewDocument('note.md', { revision: -1, content: 'old', undoContent: null }, async () => {})).toThrow('认可记录');
-    expect(() => new ReviewDocument('note.md', { revision: 0, content: 'old', undoContent: '\0' }, async () => {})).toThrow('二进制');
+    expect(() => new ReviewDocument('note.md', { revision: -1, content: 'old', undoContent: null }, async () => {})).toThrow('acceptance record');
+    expect(() => new ReviewDocument('note.md', { revision: 0, content: 'old', undoContent: '\0' }, async () => {})).toThrow('binary');
   });
 
   it('rejects a partial acceptance whose hybrid baseline exceeds the document limits', async () => {
     const before = 'a\nb\nc\n', current = 'new\na\nb\n';
     const review = new ReviewDocument('note.md', createReviewRecord(before), async () => {}, { maxFileMiB: 1, maxLines: 4 });
     const snapshot = review.snapshot(current);
-    await expect(review.accept(snapshot, snapshot.diff.changes[0]!, () => current)).rejects.toThrow('上限');
+    await expect(review.accept(snapshot, snapshot.diff.changes[0]!, () => current)).rejects.toThrow('limit');
     expect(review.snapshot(current).record.content).toBe(before);
   });
 
@@ -206,8 +206,8 @@ describe('document acceptance', () => {
   it('rejects stale text, foreign snapshots, and queued decisions made against an older recognition state', async () => {
     const { review } = document('old\n');
     const snapshot = review.snapshot('new\n');
-    await expect(review.acceptAll(snapshot, () => 'newer\n')).rejects.toThrow('已变化');
-    await expect(review.acceptAll({ ...snapshot }, () => 'new\n')).rejects.toThrow('已变化');
+    await expect(review.acceptAll(snapshot, () => 'newer\n')).rejects.toThrow('changed');
+    await expect(review.acceptAll({ ...snapshot }, () => 'new\n')).rejects.toThrow('changed');
     const results = await Promise.allSettled([
       review.acceptAll(snapshot, () => 'new\n'),
       review.acceptAll(snapshot, () => 'new\n'),

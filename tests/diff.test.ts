@@ -8,7 +8,7 @@ const MAX_LINES = DEFAULT_SETTINGS.maxLines;
 describe('Markdown line diff', () => {
   it('leaves identical and empty documents unchanged', () => {
     expect(computeDiff('', '').changes).toEqual([]);
-    expect(computeDiff('# 标题\n正文\n', '# 标题\n正文\n').hunks).toEqual([]);
+    expect(computeDiff('# Title\nBody\n', '# Title\nBody\n').hunks).toEqual([]);
   });
 
   it('normalizes CRLF without ignoring whitespace changes', () => {
@@ -17,7 +17,7 @@ describe('Markdown line diff', () => {
   });
 
   it('groups adjacent additions and removals as modifications', () => {
-    const diff = computeDiff('标题\n旧内容\n尾部\n', '标题\n新内容\n第二行\n尾部\n');
+    const diff = computeDiff('Title\nOld body\nTail\n', 'Title\nNew body\nSecond line\nTail\n');
     expect(diff.changes).toMatchObject([{ kind: 'modified', from: 1, to: 3, added: 2, deleted: 1 }]);
     expect(diff.added).toBe(2);
     expect(diff.deleted).toBe(1);
@@ -59,11 +59,11 @@ describe('Markdown line diff', () => {
     ]);
   });
 
-  it('preserves Chinese, emoji, trailing spaces and edited blank lines during alignment', () => {
-    const diff = computeDiff('甲段😀说明。\n\n乙段👩‍💻文字。\n\n尾段\n', '甲段😀新增说明。  \n1\n乙段👩‍💻新增文字。\n\n尾段\n');
+  it('preserves Unicode, emoji, trailing spaces and edited blank lines during alignment', () => {
+    const diff = computeDiff('Alpha 😀 text.\n\nBravo 👩‍💻 text.\n\nTail\n', 'Alpha 😀 new text.  \n1\nBravo 👩‍💻 new text.\n\nTail\n');
     expect(diff.changes).toMatchObject([{ kind: 'modified', from: 0, to: 3, added: 3, deleted: 3 }]);
     expect(diff.changes[0]!.rows.filter((row) => row.kind === 'added').map((row) => row.text))
-      .toEqual(['甲段😀新增说明。  ', '1', '乙段👩‍💻新增文字。']);
+      .toEqual(['Alpha 😀 new text.  ', '1', 'Bravo 👩‍💻 new text.']);
   });
 
   it('keeps corresponding paragraphs in the same action across blank-edit patterns', () => {
@@ -135,24 +135,24 @@ describe('Markdown line diff', () => {
 
   it('uses configurable byte and line limits for both versions, including UTF-8 bytes', () => {
     const limits = { maxFileMiB: 3, maxLines: 30_000 };
-    const text = '中文'.repeat(400_000);
-    expect(() => assertTextSize(text)).toThrow('过大');
+    const text = '😀'.repeat(600_000);
+    expect(() => assertTextSize(text)).toThrow('too large');
     expect(() => assertTextSize(text, limits)).not.toThrow();
-    expect(() => assertTextSize('中'.repeat(1024 * 1024 + 1), limits)).toThrow('3 MiB');
+    expect(() => assertTextSize('😀'.repeat(1024 * 1024 + 1), limits)).toThrow('3 MiB');
     const lines = 'same\n'.repeat(25_000);
     expect(computeDiff(lines, `new\n${lines}`, 0, limits).added).toBe(1);
     expect(() => computeDiff(lines, '', 0)).toThrow('20000');
-    expect(() => assertTextSize('a\0b', limits)).toThrow('二进制');
+    expect(() => assertTextSize('a\0b', limits)).toThrow('binary');
   });
 
   it('rejects oversized and binary inputs', () => {
-    expect(() => computeDiff('', 'x'.repeat(MAX_BYTES + 1))).toThrow('过大');
-    expect(() => computeDiff('', '\n'.repeat(MAX_LINES))).toThrow('过大');
-    expect(() => computeDiff('a\0b', '')).toThrow('二进制');
+    expect(() => computeDiff('', 'x'.repeat(MAX_BYTES + 1))).toThrow('too large');
+    expect(() => computeDiff('', '\n'.repeat(MAX_LINES))).toThrow('too large');
+    expect(() => computeDiff('a\0b', '')).toThrow('binary');
   });
 
   it('handles Obsidian syntax as text without losing content', () => {
-    const after = '---\naliases: [中文]\n---\n![[图片.png]]\n> [!note]\n> 修改\n| A | B |\n| - | - |\n```js\nalert(1)\n```\n';
+    const after = '---\naliases: [café]\n---\n![[image.png]]\n> [!note]\n> Edited\n| A | B |\n| - | - |\n```js\nalert(1)\n```\n';
     const diff = computeDiff('', after);
     expect(diff.hunks.flatMap((hunk) => hunk.rows).map((row) => row.text).join('\n') + '\n').toBe(after);
   });

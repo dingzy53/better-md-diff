@@ -1,6 +1,5 @@
 import { diffArrays } from 'diff';
 import type { DiffHunk, DiffRow } from './diff';
-import { t } from './i18n';
 
 export interface InlineSegment {
   text: string;
@@ -162,17 +161,17 @@ export function renderHighlightedText(container: HTMLElement, row: DiffRow, segm
       container.classList.add('bmd-empty-line');
     }
   }
-  localizeHighlightedText(container, row);
+  labelHighlightedText(container, row);
 }
 
 /** Update only UI metadata; source text nodes and copy selections are never replaced. */
-export function localizeHighlightedText(container: HTMLElement, row: DiffRow): void {
+export function labelHighlightedText(container: HTMLElement, row: DiffRow): void {
   const added = row.kind === 'added';
-  container.querySelectorAll<HTMLElement>('mark').forEach((mark) => { mark.title = t(added ? '新增内容' : '删除内容'); });
+  container.querySelectorAll<HTMLElement>('mark').forEach((mark) => { mark.title = added ? 'Added text' : 'Deleted text'; });
   container.querySelectorAll<HTMLElement>('.bmd-inline-whitespace').forEach((whitespace) => {
-    whitespace.title = t(whitespace.textContent === '\t' ? (added ? '新增制表符' : '删除制表符') : (added ? '新增空格' : '删除空格'));
+    whitespace.title = whitespace.textContent === '\t' ? (added ? 'Added tab' : 'Deleted tab') : (added ? 'Added spaces' : 'Deleted spaces');
   });
-  if (!row.text && row.kind !== 'context') { container.title = t(added ? '新增空行' : '删除空行'); container.dataset.emptyLabel = t('空行'); }
+  if (!row.text && row.kind !== 'context') { container.title = added ? 'Added empty line' : 'Deleted empty line'; container.dataset.emptyLabel = 'Empty line'; }
   const newline = container.querySelector('.bmd-no-newline');
-  if (newline) newline.textContent = t(' ⏎ 无末尾换行');
+  if (newline) newline.textContent = ' ⏎ no final newline';
 }

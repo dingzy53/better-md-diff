@@ -2,7 +2,6 @@ import { StateEffect, type Extension } from '@codemirror/state';
 import { BlockType, EditorView, gutter, GutterMarker, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { changeAnchor, normalizeText, type LineChange } from './diff';
 import type { DiffStore } from './store';
-import { t } from './i18n';
 
 export interface EditorDiffHost {
   store: DiffStore;
@@ -28,10 +27,11 @@ class DiffMarker extends GutterMarker {
     private boundary: 'first' | 'before' | 'after', private lineHeight: number, private open: () => void) {
     super();
     const { kind, added, deleted } = span.change;
-    this.label = kind === 'deleted' ? t('已删除 {count} 行，查看对应改动', { count: deleted })
-      : kind === 'added' ? t('新增 {count} 行，查看对应改动', { count: added })
-      : t('修改当前 {count} 行（原 {deleted} 行），查看对应改动', { count: added, deleted });
-    if (blockCount) this.label += ' ' + t('此显示块包含 {count} 项改动，点击查看首项；具体范围见右侧。', { count: blockCount });
+    const lineWord = (count: number) => count === 1 ? 'line' : 'lines';
+    this.label = kind === 'deleted' ? `${deleted} deleted ${lineWord(deleted)}. View the corresponding change`
+      : kind === 'added' ? `${added} added ${lineWord(added)}. View the corresponding change`
+      : `${added} current ${lineWord(added)} modified (${deleted} original ${lineWord(deleted)}). View the corresponding change`;
+    if (blockCount) this.label += ` This rendered or folded block contains ${blockCount} ${blockCount === 1 ? 'change' : 'changes'}. View the first change; see the diff panel for exact ranges.`;
   }
 
   eq(other: DiffMarker): boolean {

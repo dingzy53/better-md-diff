@@ -12,7 +12,7 @@ async function git(...args: string[]): Promise<string> {
   return (await exec('git', args, { cwd: root, encoding: 'utf8', windowsHide: true })).stdout;
 }
 async function note(path: string, text: string): Promise<void> { await writeFile(join(root, path), text, 'utf8'); }
-async function commit(): Promise<void> { await git('add', '--all'); await git('commit', '-qm', '测试提交'); }
+async function commit(): Promise<void> { await git('add', '--all'); await git('commit', '-qm', 'Test commit'); }
 
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'better-md-diff-'));
@@ -66,9 +66,9 @@ describe('read-only Git HEAD baseline', () => {
   });
 
   it('honors configured limits in cached and independent restoration reads', async () => {
-    const text = '中文'.repeat(450_000);
+    const text = '😀'.repeat(600_000);
     await note('large.md', text); await commit();
-    await expect(readGitBaseline(root, 'large.md')).rejects.toThrow('上限');
+    await expect(readGitBaseline(root, 'large.md')).rejects.toThrow('limit');
     const limits = { maxFileMiB: 3, maxLines: 30_000 };
     const reader = new GitBaselineReader(root, 'git', limits);
     try {
@@ -96,10 +96,10 @@ describe('read-only Git HEAD baseline', () => {
     expect(await readFile(join(root, 'note.md'), 'utf8')).toBe('working\n');
   });
 
-  it('uses literal paths with Chinese, spaces, glob and option-like names', async () => {
-    for (const name of ['中文 [笔记].md', '-test.md', 'a;echo bad.md']) await note(name, `${name}\n`);
+  it('uses literal paths with Unicode, spaces, glob and option-like names', async () => {
+    for (const name of ['café [note].md', '-test.md', 'a;echo bad.md']) await note(name, `${name}\n`);
     await commit();
-    for (const name of ['中文 [笔记].md', '-test.md', 'a;echo bad.md']) {
+    for (const name of ['café [note].md', '-test.md', 'a;echo bad.md']) {
       expect((await readGitBaseline(root, name)).content).toBe(`${name}\n`);
     }
   });
@@ -134,7 +134,7 @@ describe('read-only Git HEAD baseline', () => {
     const blob = (await git('rev-parse', 'HEAD:note.md')).trim();
     await git('update-index', '--add', '--cacheinfo', `120000,${blob},linked.md`);
     await expect(readGitBaseline(root, 'linked.md')).rejects.toMatchObject({
-      reason: 'read', message: '暂不支持符号链接或子模块文件。',
+      reason: 'read', message: 'Symlinks and submodule files are not supported.',
     });
   });
 

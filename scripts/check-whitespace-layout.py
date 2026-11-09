@@ -38,7 +38,7 @@ with sync_playwright() as pw:
     page.add_style_tag(path=str(repo / 'styles.css'))
     page.add_script_tag(path=str(bundle))
     session = page.context.new_cdp_session(page)
-    fixtures = ['| action | saved state' + ' ' * 40 + '|', 'prefix ' + ' ' * 80 + 'suffix', ' ' * 80, ' ' * 50000, 'before\t \t after', '中文说明' * 8 + ' ' * 40 + '|']
+    fixtures = ['| action | saved state' + ' ' * 40 + '|', 'prefix ' + ' ' * 80 + 'suffix', ' ' * 80, ' ' * 50000, 'before\t \t after', 'Café résumé text ' * 8 + ' ' * 40 + '|']
     for width in [280, 440, 480]:
         for size in [13, 18]:
             for index, text in enumerate(fixtures):

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { MarkdownView, WorkspaceLeaf } from 'obsidian';
 import { revealSourceLine } from '../src/source-navigation';
 
-function setup(mode: 'source' | 'preview', content = 'first\n第二行\nlast\n') {
+function setup(mode: 'source' | 'preview', content = 'first\nSecond line\nlast\n') {
   const setEphemeralState = vi.fn(), scrollIntoView = vi.fn();
   const leaf = { setEphemeralState } as unknown as WorkspaceLeaf;
   const view = { getMode: () => mode, getViewData: () => content, editor: { scrollIntoView } } as unknown as MarkdownView;
@@ -18,10 +18,10 @@ describe('source navigation through host APIs', () => {
   });
 
   it('uses host match navigation to center rendered Markdown without switching modes', () => {
-    const content = '😀 first\r\n第二行\r\nlast';
+    const content = '😀 first\r\nSecond line\r\nlast';
     const { leaf, view, setEphemeralState, scrollIntoView } = setup('preview', content);
     revealSourceLine(leaf, view, 1, true);
-    const offset = content.indexOf('第二行');
+    const offset = content.indexOf('Second line');
     expect(setEphemeralState).toHaveBeenCalledWith({ match: { content, matches: [[offset, offset]] } });
     expect(scrollIntoView).not.toHaveBeenCalled();
   });

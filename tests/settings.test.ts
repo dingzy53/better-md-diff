@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { setLanguage } from '../src/i18n';
 import type { App, Setting as HostSetting } from 'obsidian';
 import type BetterMdDiff from '../src/main';
 import { DEFAULT_SETTINGS, normalizeSettings } from '../src/options';
@@ -24,11 +23,9 @@ function setup() {
   return { tab, host };
 }
 
-afterEach(() => setLanguage('zh-CN'));
 describe('searchable settings with legacy support', () => {
-  it('uses the current host locale without exposing a plugin language override', () => {
+  it('uses English labels without exposing a language override', () => {
     const { tab } = setup();
-    setLanguage('en');
     const definitions = tab.getSettingDefinitions();
     expect(definitions[0]?.heading).toBe('Appearance');
     expect(definitions[0]?.items[0]?.name).toBe('Show diff markers in the editor');
@@ -72,11 +69,11 @@ describe('searchable settings with legacy support', () => {
   it('exposes every setting in named searchable groups without I/O', () => {
     const { tab, host } = setup();
     const definitions = tab.getSettingDefinitions();
-    expect(definitions.map((group) => group.heading)).toEqual(['显示与排版', '定位联动', '刷新节奏', 'Git 与还原', 'Changes list']);
+    expect(definitions.map((group) => group.heading)).toEqual(['Appearance', 'Navigation', 'Refresh', 'Git and restoration', 'Changes list']);
     expect(definitions.flatMap((group) => group.items.map((item) => item.name))).toEqual([
-      '在编辑正文显示差异标记', '差异面板字号', '上下文行数', '突出变化字词', '显示变化空白符',
-      '左侧选行定位右侧', '右侧导航定位原文', '编辑后刷新延迟', 'Git 变化检测间隔',
-      '文档大小上限', '文档行数上限', 'Git 可执行文件', '还原安全说明',
+      'Show diff markers in the editor', 'Diff panel font size', 'Context lines', 'Highlight changed text', 'Show changed whitespace',
+      'Follow editor selection', 'Follow panel navigation in the editor', 'Refresh delay after editing', 'Git polling interval',
+      'Document size limit', 'Document line limit', 'Git executable', 'Restoration safety',
       'Show untracked files', 'Exclude patterns', 'Show change count in status bar',
     ]);
     expect(host.applySettings).not.toHaveBeenCalled();

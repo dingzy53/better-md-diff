@@ -1,5 +1,5 @@
 import { diffChars, diffLines, type Change } from 'diff';
-import { LocalizedError, t } from './i18n';
+import { PluginError } from './errors';
 
 import { DEFAULT_SETTINGS, type DocumentLimits } from './options';
 export type ChangeKind = 'added' | 'deleted' | 'modified';
@@ -46,9 +46,9 @@ export function assertTextSize(text: string, limits: DocumentLimits = DEFAULT_SE
   // Count without allocating an array containing every line of a large document.
   for (let i = 0; i < text.length && lines <= limits.maxLines; i++) if (text.charCodeAt(i) === 10) lines++;
   if (Buffer.byteLength(text, 'utf8') > limits.maxFileMiB * 1024 * 1024 || lines > limits.maxLines) {
-    throw new LocalizedError('文档过大：当前上限为 {size} MiB、{lines} 行，可在插件设置中调整。', { size: limits.maxFileMiB, lines: limits.maxLines });
+    throw new PluginError('Document too large: the current limits are {size} MiB and {lines} lines. Adjust them in plugin settings.', { size: limits.maxFileMiB, lines: limits.maxLines });
   }
-  if (text.includes('\0')) throw new LocalizedError('该文件包含二进制内容，无法作为 Markdown 比较。');
+  if (text.includes('\0')) throw new PluginError('This file contains binary content and cannot be compared as Markdown.');
 }
 
 export function computeDiff(before: string, after: string, contextLines = 3, limits: DocumentLimits = DEFAULT_SETTINGS): DocumentDiff {
@@ -58,7 +58,7 @@ export function computeDiff(before: string, after: string, contextLines = 3, lim
   after = normalizeText(after);
   const deadline = Date.now() + 200;
   let parts = diffLines(before, after, { timeout: 200 });
-  if (!parts) throw new LocalizedError('差异计算超时，请缩小文档或变更范围后重试。');
+  if (!parts) throw new PluginError('Diff calculation timed out. Reduce the document or change size and try again.');
   parts = alignBlankLines(parts, deadline);
 
   const rows: DiffRow[] = [];
@@ -201,8 +201,8 @@ export function changeRange(change: LineChange): string {
   if (change.kind === 'deleted') {
     const from = change.rows[0]!.oldLine!;
     const to = change.rows[change.rows.length - 1]!.oldLine!;
-    return from === to ? t('恢复 HEAD 第 {from} 行', { from }) : t('恢复 HEAD 第 {from}–{to} 行', { from, to });
+    return from === to ? `Restore HEAD line ${from}` : `Restore HEAD lines ${from}–${to}`;
   }
   const from = change.from + 1, to = change.to;
-  return from === to ? t('当前第 {from} 行', { from }) : t('当前第 {from}–{to} 行', { from, to });
+  return from === to ? `Current line ${from}` : `Current lines ${from}–${to}`;
 }

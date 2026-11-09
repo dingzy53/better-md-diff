@@ -15,7 +15,6 @@ from playwright.sync_api import sync_playwright
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--executable', required=True)
-parser.add_argument('--language', choices=['en', 'zh'], help='Set only the newly created test profile language preference.')
 args = parser.parse_args()
 
 def sidebar_tabs(node):
@@ -34,18 +33,18 @@ vault = case / 'vault'
 profile = case / 'profile'
 vault.mkdir(); profile.mkdir()
 config = vault / '.obsidian'
-plugin_dir = config / 'plugins' / 'better-md-diff'
+plugin_dir = config / 'plugins' / 'uncommitted'
 plugin_dir.mkdir(parents=True)
 for name in ['main.js', 'manifest.json', 'styles.css']:
-    shutil.copyfile(repo / 'dist' / 'better-md-diff' / name, plugin_dir / name)
-(config / 'community-plugins.json').write_text('["better-md-diff"]', encoding='utf-8')
+    shutil.copyfile(repo / 'dist' / 'uncommitted' / name, plugin_dir / name)
+(config / 'community-plugins.json').write_text('["uncommitted"]', encoding='utf-8')
 (config / 'app.json').write_text(json.dumps({'livePreview': False}), encoding='utf-8')
-(profile / 'obsidian.json').write_text(json.dumps({'vaults': {'bmd-smoke': {'path': str(vault), 'ts': int(time.time() * 1000), 'open': True}}, 'autoUpdate': False}), encoding='utf-8')
+(profile / 'obsidian.json').write_text(json.dumps({'vaults': {'uncommitted-smoke': {'path': str(vault), 'ts': int(time.time() * 1000), 'open': True}}, 'autoUpdate': False}), encoding='utf-8')
 before = ''.join(f'line {i}\n' for i in range(24))
 current = before.replace('line 1\n', 'first change\n').replace('line 20\n', 'last change\n')
 (vault / 'sample.md').write_text(before, encoding='utf-8')
-items_before = '开头\n- 重置时间：04:00。\n保持文本\n## 段位变化\n\n升级时：\n保持文本2\n次数不变。\n结尾\n'
-items_current = items_before.replace('04:00。', '04:00').replace('## 段位变化', '## 段位变化提示').replace('升级时：\n', '').replace('次数不变。', '次数不变（备注）。')
+items_before = 'Opening\n- Reset time: 04:00.\nKeep text\n## Rank changes\n\nOn upgrade:\nKeep text 2\nCount unchanged.\nEnding\n'
+items_current = items_before.replace('04:00.', '04:00').replace('## Rank changes', '## Rank changes note').replace('On upgrade:\n', '').replace('Count unchanged.', 'Count unchanged (note).')
 (vault / 'items.md').write_text(items_before, encoding='utf-8')
 nav_before = ''.join(f'Navigation line {i}.\n\n' for i in range(240))
 nav_current = nav_before
@@ -53,8 +52,8 @@ for i in [0, 40, 42, 120, 160, 239]:
     nav_current = nav_current.replace(f'Navigation line {i}.', f'Changed navigation line {i}.')
 nav_current = nav_current.replace('Navigation line 80.\n', '')
 (vault / 'navigation.md').write_text(nav_before, encoding='utf-8')
-spaces_before = ''.join(f'| 功能 {i} | 处理结果 |\n' for i in range(6)) + '\nUnchanged tail.\n\n'
-spaces_current = spaces_before.replace('结果 |', '结果' + ' ' * 60 + '|') + '制表符\t结尾\n'
+spaces_before = ''.join(f'| Feature {i} | Result |\n' for i in range(6)) + '\nUnchanged tail.\n\n'
+spaces_current = spaces_before.replace('Result |', 'Result' + ' ' * 60 + '|') + 'Tab\tending\n'
 (vault / 'spaces.md').write_text(spaces_before, encoding='utf-8')
 flags_before = '# Generated source flags\n\nKeep before additions.\nKeep before modifications.\nOld line one.\nOld line two.\nKeep before deletion.\n\n---\n\nDeleted line one.\nDeleted line two.\n## Native heading\nKeep after.\n'
 flags_current = flags_before.replace('Keep before additions.\n', 'Keep before additions.\nAdded one.\nAdded two.\nAdded three: ' + 'wrapped text ' * 12 + '\n').replace('Old line one.\nOld line two.', 'Modified one.\nModified two: ' + 'wrapped text ' * 12).replace('Deleted line one.\nDeleted line two.\n', '')
@@ -67,7 +66,7 @@ alignment_before = '\n'.join(alignment['before'])
 alignment_current = '\n'.join(alignment['after'])
 (vault / 'alignment.md').write_text(alignment_before, encoding='utf-8')
 large = ''.join(f'{i:05d} ' + 'abcdefghij ' * 8 + '\n' for i in range(30_000))
-clean_path = '版本规划/修订/2026-09-18/功能规划-修订-2026-09-18.md'
+clean_path = 'planning/revisions/2026-09-18/feature-plan-revision-2026-09-18.md'
 (vault / clean_path).parent.mkdir(parents=True)
 (vault / clean_path).write_text('# Generated clean example\n', encoding='utf-8')
 for command in [['init', '-q'], ['config', 'user.name', 'Smoke Test'], ['config', 'user.email', 'smoke@example.invalid'], ['config', 'commit.gpgsign', 'false'], ['config', 'core.autocrlf', 'false'], ['add', 'sample.md', 'items.md', 'navigation.md', 'spaces.md', 'flags.md', 'blocks.md', 'alignment.md', clean_path], ['commit', '-qm', 'baseline']]:
@@ -99,28 +98,14 @@ try:
         if Path(actual).resolve() != vault.resolve():
             raise RuntimeError('Vault identity mismatch; no UI data was read or edited.')
         report['checks'].append('isolated vault identity')
-        if args.language and page.evaluate("localStorage.getItem('language') || 'en'") != args.language:
-            page.evaluate("language => localStorage.setItem('language', language)", args.language)
-            # A full, graceful restart lets the host flush its own JSON; renderer reloads race those writes.
-            page.close(run_before_unload=True)
-            process.wait(timeout=20)
-            process = subprocess.Popen(launch_args, stdout=log, stderr=log)
-            browser = connect_host(pw, process)
-            page = browser.contexts[0].pages[0]
-            page.wait_for_function('typeof app !== "undefined" && app.vault && app.workspace?.layoutReady', timeout=60000)
-            if Path(page.evaluate('app.vault.adapter.getBasePath()')).resolve() != vault.resolve():
-                raise RuntimeError('Vault identity changed after locale restart.')
         page.on('pageerror', lambda error: report.setdefault('page_errors', []).append(str(error)))
         page.on('console', lambda message: report.setdefault('console_errors', []).append(message.text) if message.type == 'error' else None)
-        # Test-only inspection of this fresh profile's app preference; production uses getLanguage().
-        report['language'] = page.evaluate("localStorage.getItem('language') || 'en'")
-        chinese = report['language'].lower().startswith('zh')
-        progress_prefix = '改动' if chinese else 'Change'
-        confirm_label = '确认还原' if chinese else 'Confirm restoration'
+        progress_prefix = 'Change'
+        confirm_label = 'Confirm restoration'
         # This is exclusively our freshly generated, identity-checked vault and our own build.
         # A fresh host asks for author trust asynchronously; enabling a plugin before consent races it.
-        trust = page.get_by_role('button', name=re.compile('信任仓库作者并启用插件|Trust author and enable plugins', re.I))
-        page.wait_for_function("app.plugins.plugins['better-md-diff']?.store || [...document.querySelectorAll('button')].some(button => /信任仓库作者并启用插件|Trust author and enable plugins/i.test(button.textContent))")
+        trust = page.get_by_role('button', name=re.compile('Trust author and enable plugins', re.I))
+        page.wait_for_function("app.plugins.plugins['uncommitted']?.store || [...document.querySelectorAll('button')].some(button => /Trust author and enable plugins/i.test(button.textContent))")
         if trust.is_visible():
             trust.click(timeout=30000)
             trust.wait_for(state='hidden')
@@ -128,9 +113,9 @@ try:
         else:
             report['checks'].append('host already enabled the generated vault plugin after restart')
         try:
-            page.wait_for_function("app.plugins.plugins['better-md-diff']?.store")
+            page.wait_for_function("app.plugins.plugins['uncommitted']?.store")
         except Exception:
-            report['plugin_diagnostic'] = page.evaluate("() => { const p = app.plugins.plugins['better-md-diff']; return {present: !!p, keys: Object.keys(p || {}), modals: [...document.querySelectorAll('.modal-container')].map(el => el.textContent), notices: [...document.querySelectorAll('.notice')].map(el => el.textContent)}; }")
+            report['plugin_diagnostic'] = page.evaluate("() => { const p = app.plugins.plugins['uncommitted']; return {present: !!p, keys: Object.keys(p || {}), modals: [...document.querySelectorAll('.modal-container')].map(el => el.textContent), notices: [...document.querySelectorAll('.notice')].map(el => el.textContent)}; }")
             page.screenshot(path=str(case / 'startup-failure.png'))
             raise
         page.evaluate("""async () => {
@@ -152,25 +137,24 @@ try:
           view.editor.setValue(text);
         }""", current)
         sidebar_before = sidebar_tabs(page.evaluate('app.workspace.getLayout().right'))
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('sample.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('sample.md')")
         sidebar_after = sidebar_tabs(page.evaluate('app.workspace.getLayout().right'))
         assert len(sidebar_after) == max(1, len(sidebar_before)), 'Opening diff unexpectedly added a vertical sidebar split'
         if sidebar_before:
             assert 'better-md-diff-view' in sidebar_after[next(iter(sidebar_before))].values(), 'Diff is not in the top sidebar tab group'
         for group, leaves in sidebar_before.items():
             assert all(sidebar_after[group].get(leaf) == kind for leaf, kind in leaves.items()), 'An existing sidebar view was replaced'
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('sample.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('sample.md')")
         assert page.evaluate("app.workspace.getLeavesOfType('better-md-diff-view').length") == 1
         report['checks'].append('top sidebar tab, existing views preserved, repeated opening reuses one leaf')
         page.locator('.bmd-progress').filter(has_text=f'{progress_prefix} 1 / 2').wait_for(timeout=30000)
         assert page.locator('.bmd-progress').inner_text() == f'{progress_prefix} 1 / 2'
         assert page.locator('.bmd-progress').get_attribute('aria-label') == f'{progress_prefix} 1 / 2'
-        command_name = page.evaluate("app.commands.commands['better-md-diff:next-change'].name")
-        assert ('定位下一处差异' if chinese else 'Go to next change') in command_name
-        report['checks'].append('panel and command language follow the isolated host language')
+        command_name = page.evaluate("app.commands.commands['uncommitted:next-change'].name")
+        assert 'Go to next change' in command_name
         report['checks'].append('two independent change actions in the real panel')
         assert page.locator('.bmd-region-heading').count() == 2
-        assert page.locator('.bmd-region-heading').first.inner_text() == ('当前 1–5 行 · 1 处改动' if chinese else 'Current lines 1–5 · 1 change')
+        assert page.locator('.bmd-region-heading').first.inner_text() == 'Current lines 1–5 · 1 change'
         assert page.locator('.bmd-region-heading button').count() == 2
         page.locator('.notice.is-loading').wait_for(state='hidden', timeout=60000)
         assert page.locator('.workspace-tab-header .lucide-file-diff').count() == 1
@@ -180,7 +164,7 @@ try:
         page.screenshot(path=str(case / 'diff-icon.png'))
         page.keyboard.press('Escape')
         report['checks'].append('file-diff SVG renders in the tab, ribbon and file context menu')
-        # Follow visual order with the keyboard; icon-only controls retain localized names.
+        # Follow visual order with the keyboard; icon-only controls retain accessible names.
         page.locator('.bmd-refresh').focus()
         for selector in ['.bmd-previous', '.bmd-next', '.bmd-help-button']:
             page.keyboard.press('Tab')
@@ -191,7 +175,7 @@ try:
         page.keyboard.press('Enter')
         page.locator('.bmd-reading-guide').wait_for()
         assert page.locator('.bmd-panel .bmd-reading-guide').count() == 0
-        assert page.locator('.bmd-guide-title').inner_text() == ('阅读说明' if chinese else 'Reading guide')
+        assert page.locator('.bmd-guide-title').inner_text() == 'Reading guide'
         for _ in range(3):
             page.keyboard.press('Tab')
             assert page.locator('.modal-container').evaluate('el => el.contains(document.activeElement)')
@@ -205,7 +189,7 @@ try:
         assert page.locator('.bmd-help-button').evaluate('el => document.activeElement === el')
         assert page.locator('.bmd-diff-body').bounding_box() == body_box
         assert page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue()") == current
-        report['checks'].append('keyboard order, visible focus, localized guide, native focus trap, Escape/close return focus; no sidebar reflow or source edits')
+        report['checks'].append('keyboard order, visible focus, English guide, native focus trap, Escape/close return focus; no sidebar reflow or source edits')
         page.locator('.bmd-next').click()
         assert page.locator('.bmd-progress').inner_text() == f'{progress_prefix} 2 / 2'
         report['checks'].append('next-change navigation')
@@ -220,35 +204,33 @@ try:
         page.keyboard.press('Meta+z' if os.sys.platform == 'darwin' else 'Control+z')
         page.wait_for_function("expected => app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue() === expected", arg=current)
         report['checks'].append('native editor undo restores the complete pre-revert buffer')
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('sample.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('sample.md')")
         page.locator('.bmd-revert').first.click()
-        page.get_by_role('button', name='取消' if chinese else 'Cancel', exact=True).click()
+        page.get_by_role('button', name='Cancel', exact=True).click()
         assert page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue()") == current
         report['checks'].append('cancel leaves editor untouched')
         # Three operations can share two reading groups; their labels and action scopes differ.
         nearby = current.replace('line 3\n', 'nearby change\n')
         page.evaluate("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.setValue(text)", nearby)
         page.wait_for_function("text => document.querySelector('.bmd-progress').textContent === text", arg=f'{progress_prefix} 1 / 3')
-        assert page.locator('.bmd-region-heading').all_text_contents() == (
-            ['当前 1–7 行 · 2 处改动', '当前 18–24 行 · 1 处改动'] if chinese
-            else ['Current lines 1–7 · 2 changes', 'Current lines 18–24 · 1 change'])
+        assert page.locator('.bmd-region-heading').all_text_contents() == ['Current lines 1–7 · 2 changes', 'Current lines 18–24 · 1 change']
         page.wait_for_function("document.querySelectorAll('.notice').length === 0", timeout=20000)
         page.locator('.bmd-panel').screenshot(path=str(case / 'change-counts.png'))
         page.locator('.bmd-next').click()
         assert page.locator('.bmd-progress').inner_text() == f'{progress_prefix} 2 / 3'
-        assert page.locator('.bmd-diff-region--selected .bmd-region-heading').inner_text().endswith('2 处改动' if chinese else '2 changes')
+        assert page.locator('.bmd-diff-region--selected .bmd-region-heading').inner_text().endswith('2 changes')
         page.locator('.bmd-next').click()
         assert page.locator('.bmd-progress').inner_text() == f'{progress_prefix} 3 / 3'
-        assert page.locator('.bmd-diff-region--selected .bmd-region-heading').inner_text().endswith('1 处改动' if chinese else '1 change')
+        assert page.locator('.bmd-diff-region--selected .bmd-region-heading').inner_text().endswith('1 change')
         page.locator('.bmd-revert').nth(1).click()
         page.get_by_role('button', name=confirm_label, exact=True).click()
         page.wait_for_function("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue() === text", arg=current)
         page.wait_for_function("document.querySelectorAll('.bmd-change').length === 2")
-        assert all(title.endswith('1 处改动' if chinese else '1 change') for title in page.locator('.bmd-region-heading').all_text_contents())
+        assert all(title.endswith('1 change') for title in page.locator('.bmd-region-heading').all_text_contents())
         report['checks'].append('explicit global change progress and per-group counts distinguish three actions from two reading groups; next visits each item and restoration only removes the selected nearby change')
         # A long fixture includes nearby edits, a pure deletion, and natural document boundaries.
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].openFile(app.vault.getAbstractFileByPath('navigation.md'))")
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('navigation.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('navigation.md')")
         page.wait_for_function("document.querySelectorAll('.bmd-change').length === 7")
         assert page.locator('.bmd-region-heading').count() == 6, 'Nearby edits share a display block, not an action'
         block_geometry = page.locator('.bmd-diff-body').evaluate("""body => [...body.querySelectorAll('.bmd-diff-region')].map((el, index, blocks) => {
@@ -265,7 +247,7 @@ try:
             const body = document.querySelector('.bmd-diff-body');
             const items = [...body.querySelectorAll('.bmd-change')];
             const selected = body.querySelector('.bmd-change--selected'), index = items.indexOf(selected);
-            const diff = app.plugins.plugins['better-md-diff'].store.get('navigation.md').diff;
+            const diff = app.plugins.plugins['uncommitted'].store.get('navigation.md').diff;
             const line = Math.min(diff.changes[index].from, diff.lineCount - 1);
             const error = (scroller, rect, tall = false) => {
               if (!rect) return 99999;
@@ -322,13 +304,13 @@ try:
                     page.locator('.bmd-panel').screenshot(path=str(case / f'block-center-{mode}-{source}.png'))
             page.screenshot(path=str(case / f'navigation-{mode}-{source}.png'))
             # Disabling navigation linkage leaves the source position and mode unchanged.
-            page.evaluate("app.plugins.plugins['better-md-diff'].settings.followNavigation = false")
+            page.evaluate("app.plugins.plugins['uncommitted'].settings.followNavigation = false")
             before_top = page.evaluate('window.bmdNavigationMetrics().sourceTop')
             page.locator('.bmd-previous').click()
             page.wait_for_function("window.bmdNavigationMetrics().index === 5 && window.bmdNavigationMetrics().diffError <= 2")
             assert abs(page.evaluate('window.bmdNavigationMetrics().sourceTop') - before_top) <= 1
             assert page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.getMode()") == mode
-            page.evaluate("app.plugins.plugins['better-md-diff'].settings.followNavigation = true")
+            page.evaluate("app.plugins.plugins['uncommitted'].settings.followNavigation = true")
             for selector, number, index, key in [('.bmd-region-jump', 1, 1, None), ('.bmd-change-title', 2, 2, None), ('.bmd-region-jump', 1, 1, 'Enter'), ('.bmd-change-title', 3, 3, None)]:
                 control = page.locator(selector).nth(number)
                 if key:
@@ -349,13 +331,13 @@ try:
             assert page.evaluate('window.bmdNavigationMetrics().index') == 3
             assert abs(page.evaluate('window.bmdNavigationMetrics().sourceTop') - source_top) <= 1
             page.evaluate('document.getSelection().removeAllRanges()')
-            page.evaluate("app.plugins.plugins['better-md-diff'].settings.followNavigation = false")
+            page.evaluate("app.plugins.plugins['uncommitted'].settings.followNavigation = false")
             page.locator('.bmd-region-jump').first.click()
             page.wait_for_function('window.bmdNavigationMetrics().index === 0')
             page.locator('.bmd-change-title').nth(2).click()
             page.wait_for_function('window.bmdNavigationMetrics().index === 2')
             assert abs(page.evaluate('window.bmdNavigationMetrics().sourceTop') - source_top) <= 1
-            page.evaluate("app.plugins.plugins['better-md-diff'].settings.followNavigation = true")
+            page.evaluate("app.plugins.plugins['uncommitted'].settings.followNavigation = true")
             page.locator('.bmd-change-title').nth(5).click()
             page.wait_for_function("tolerance => { const m = window.bmdNavigationMetrics(); return m.index === 5 && m.diffError <= 2 && m.sourceError <= tolerance; }", arg=tolerance)
         report['checks'].append('block headings (mouse/Enter) select the first item; changed line numbers select exact items; both center without stealing focus and honor source linkage in all three modes')
@@ -371,8 +353,8 @@ try:
         long_nav = nav_current.replace('Changed navigation line 120.', '\n'.join(f'Long inserted line {i}.' for i in range(80)))
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].setViewState({type:'markdown',state:{file:'navigation.md',mode:'source',source:true}})")
         page.evaluate("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.setValue(text)", long_nav)
-        page.wait_for_function("text => app.plugins.plugins['better-md-diff'].store.get('navigation.md')?.current === text", arg=long_nav)
-        page.evaluate("() => { const p = app.plugins.plugins['better-md-diff']; app.workspace.getLeavesOfType('better-md-diff-view')[0].view.showLine(p.store.get('navigation.md').diff.changes[3].from, true, true); }")
+        page.wait_for_function("text => app.plugins.plugins['uncommitted'].store.get('navigation.md')?.current === text", arg=long_nav)
+        page.evaluate("() => { const p = app.plugins.plugins['uncommitted']; app.workspace.getLeavesOfType('better-md-diff-view')[0].view.showLine(p.store.get('navigation.md').diff.changes[3].from, true, true); }")
         page.locator('.bmd-next').click()
         page.wait_for_function("() => { const m = window.bmdNavigationMetrics(); return m.index === 4 && m.diffError <= 2 && m.sourceError <= 2; }")
         tall = page.locator('.bmd-diff-body').evaluate("el => { const change = el.querySelector('.bmd-change--selected').getBoundingClientRect(); return {height: change.height, viewport: el.clientHeight, top: change.top - el.getBoundingClientRect().top}; }")
@@ -392,7 +374,7 @@ try:
         # Changed table padding must paint on its own text fragments, never below the block.
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].openFile(app.vault.getAbstractFileByPath('spaces.md'))")
         page.evaluate("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.setValue(text)", spaces_current)
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('spaces.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('spaces.md')")
         page.wait_for_function("document.querySelectorAll('.bmd-inline-whitespace[data-symbol^=\"·\"]').length >= 6")
         assert page.locator('.bmd-row').evaluate_all("""rows => rows.every(row => {
           const box = row.getBoundingClientRect();
@@ -418,7 +400,7 @@ try:
         assert page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue()") == spaces_current
         report['checks'].append('changed whitespace stays inside its rows and copies as exact source spaces/tabs, without stray dots below the block')
         page.evaluate("async () => { const leaf = app.workspace.getLeavesOfType('markdown')[0]; await leaf.openFile(app.vault.getAbstractFileByPath('sample.md')); await leaf.setViewState({type:'markdown',state:{file:'sample.md',mode:'source',source:true}}); }")
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('sample.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('sample.md')")
         page.locator('.bmd-revert').first.wait_for()
         copied = page.evaluate("""() => {
           const code = document.querySelector('.bmd-row--added .bmd-row-text');
@@ -446,15 +428,15 @@ try:
         page.wait_for_function("document.querySelector('.bmd-file')?.textContent === 'sample.md'")
         report['checks'].append('file switching follows the final active file')
         page.evaluate("app.vault.rename(app.vault.getAbstractFileByPath('sample.md'), 'renamed.md')")
-        page.wait_for_function("app.plugins.plugins['better-md-diff'].store.get('renamed.md')?.status === 'error'")
-        assert page.evaluate("app.plugins.plugins['better-md-diff'].store.get('sample.md') === undefined")
+        page.wait_for_function("app.plugins.plugins['uncommitted'].store.get('renamed.md')?.status === 'error'")
+        assert page.evaluate("app.plugins.plugins['uncommitted'].store.get('sample.md') === undefined")
         page.evaluate("app.vault.rename(app.vault.getAbstractFileByPath('renamed.md'), 'sample.md')")
-        page.wait_for_function("app.plugins.plugins['better-md-diff'].store.get('sample.md')?.status === 'ready'")
+        page.wait_for_function("app.plugins.plugins['uncommitted'].store.get('sample.md')?.status === 'ready'")
         report['checks'].append('rename forgets stale paths and recovers when tracked path returns')
         page.evaluate("app.vault.delete(app.vault.getAbstractFileByPath('other.md'))")
-        assert page.evaluate("app.plugins.plugins['better-md-diff'].store.get('other.md') === undefined")
+        assert page.evaluate("app.plugins.plugins['uncommitted'].store.get('other.md') === undefined")
         report['checks'].append('deleted temporary file leaves no stale diff')
-        definitions = page.evaluate("app.setting.pluginTabs.find(t => t.plugin?.manifest?.id === 'better-md-diff')?.getSettingDefinitions().flatMap(s => s.items).map(s => s.name)")
+        definitions = page.evaluate("app.setting.pluginTabs.find(t => t.plugin?.manifest?.id === 'uncommitted')?.getSettingDefinitions().flatMap(s => s.items).map(s => s.name)")
         assert definitions and len(definitions) == 13
         report['checks'].append('13 searchable settings registered in real host')
         for source in [True, False]:
@@ -464,9 +446,9 @@ try:
               await leaf.setViewState({type:'markdown',state:{file:'alignment.md',mode:'source',source}});
               leaf.view.editor.setValue(text);
               leaf.view.editor.setCursor({line:0,ch:0});
-              await app.plugins.plugins['better-md-diff'].openDiff('alignment.md');
+              await app.plugins.plugins['uncommitted'].openDiff('alignment.md');
             }""", [alignment_current, source])
-            page.wait_for_function("text => app.plugins.plugins['better-md-diff'].store.get('alignment.md')?.current === text && document.querySelectorAll('.bmd-change').length === 2", arg=alignment_current)
+            page.wait_for_function("text => app.plugins.plugins['uncommitted'].store.get('alignment.md')?.current === text && document.querySelectorAll('.bmd-change').length === 2", arg=alignment_current)
             page.wait_for_function("JSON.stringify([...document.querySelectorAll('.bmd-gutter-marker')].map(el => el.textContent)) === JSON.stringify(['~3','~5'])")
             assert page.locator('.bmd-gutter-marker--deleted').count() == 0
             assert page.locator('.bmd-region-heading').count() == 1
@@ -492,13 +474,13 @@ try:
                 page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.editor.focus()")
                 page.keyboard.press('Meta+z' if os.sys.platform == 'darwin' else 'Control+z')
                 page.wait_for_function("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue() === text", arg=alignment_current)
-                page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('alignment.md')")
-                page.wait_for_function("text => app.plugins.plugins['better-md-diff'].store.get('alignment.md')?.current === text && document.querySelectorAll('.bmd-change').length === 2", arg=alignment_current)
+                page.evaluate("app.plugins.plugins['uncommitted'].openDiff('alignment.md')")
+                page.wait_for_function("text => app.plugins.plugins['uncommitted'].store.get('alignment.md')?.current === text && document.querySelectorAll('.bmd-change').length === 2", arg=alignment_current)
         page.evaluate("async () => { const leaf = app.workspace.getLeavesOfType('markdown')[0]; await leaf.setViewState({type:'markdown',state:{file:'alignment.md',mode:'source',source:true}}); }")
         report['checks'].append('repeated blanks keep old/new paragraphs paired, show only ~3/~5 flags, and restore either group independently with native undo in source and Live Preview')
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].openFile(app.vault.getAbstractFileByPath('items.md'))")
         page.evaluate("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.setValue(text)", items_current)
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('items.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('items.md')")
         page.wait_for_function("document.querySelectorAll('.bmd-change').length === 4")
         assert page.locator('.bmd-diff-region').count() == 1
         assert page.locator('.bmd-hunk').count() == 0
@@ -522,7 +504,7 @@ try:
         assert context.evaluate('el => getComputedStyle(el).color') != added_text.evaluate('el => getComputedStyle(el).color'), 'Added text must use green rather than the context color'
         assert deleted_text.evaluate('el => getComputedStyle(el).color') != added_text.evaluate('el => getComputedStyle(el).color'), 'Old and new text must have distinct red/green foregrounds'
         deletion_marker.click()
-        page.wait_for_function("document.querySelector('.bmd-row--deleted.bmd-row--current .bmd-row-text')?.textContent === '升级时：'")
+        page.wait_for_function("document.querySelector('.bmd-row--deleted.bmd-row--current .bmd-row-text')?.textContent === 'On upgrade:'")
         report['checks'].append('deletion boundary flag opens the old row without a source rule, tint or mutation; adjacent old/new rows use red/green text')
         assert page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue()") == items_current
         page.locator('.bmd-revert').nth(1).click()
@@ -530,26 +512,26 @@ try:
         page.get_by_role('button', name=confirm_label, exact=True).click()
         page.get_by_role('button', name=confirm_label, exact=True).wait_for(state='hidden')
         actual_item_text = page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue()")
-        if actual_item_text != items_current.replace('## 段位变化提示', '## 段位变化'):
+        if actual_item_text != items_current.replace('## Rank changes note', '## Rank changes'):
             report['item_restore_diagnostic'] = {'actual': actual_item_text, 'notices': page.locator('.notice').all_text_contents(), 'mode': page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.getMode()")}
             page.screenshot(path=str(case / 'item-failure.png'))
             raise AssertionError('Selected item did not restore independently')
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.editor.focus()")
         page.keyboard.press('Meta+z' if os.sys.platform == 'darwin' else 'Control+z')
         page.wait_for_function("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue() === text", arg=items_current)
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('items.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('items.md')")
         page.wait_for_function("document.querySelectorAll('.bmd-change').length === 4")
         page.locator('.bmd-revert').nth(2).click()
         page.get_by_role('button', name=confirm_label, exact=True).click()
-        page.wait_for_function("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue() === text", arg=items_current.replace('保持文本2', '升级时：\n保持文本2'))
+        page.wait_for_function("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue() === text", arg=items_current.replace('Keep text 2', 'On upgrade:\nKeep text 2'))
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.editor.focus()")
         page.keyboard.press('Meta+z' if os.sys.platform == 'darwin' else 'Control+z')
         page.wait_for_function("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue() === text", arg=items_current)
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('items.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('items.md')")
         page.wait_for_function("document.querySelectorAll('.bmd-change').length === 4")
         page.wait_for_function("document.querySelectorAll('.notice').length === 0", timeout=20000)
         page.locator('.bmd-gutter-marker--deleted').first.click()
-        page.wait_for_function("document.querySelector('.bmd-row--deleted.bmd-row--current .bmd-row-text')?.textContent === '升级时：'")
+        page.wait_for_function("document.querySelector('.bmd-row--deleted.bmd-row--current .bmd-row-text')?.textContent === 'On upgrade:'")
         page.locator('.bmd-panel').screenshot(path=str(case / 'independent-changes.png'))
         page.screenshot(path=str(case / 'deletion-gutter.png'))
         report['checks'].append('four nearby edits share context but restore individually, including pure deletion and native undo')
@@ -605,19 +587,19 @@ try:
         report['checks'].append('light/dark changes at 280/440px: restore controls do not cover text or cause horizontal overflow')
         report['checks'].append('red deleted / green added text, normal context, and at least 4.5:1 contrast on row, selected-row and changed-word backgrounds in both default themes')
         text_colors = page.locator('.bmd-row-text').evaluate_all("els => els.map(el => getComputedStyle(el).color)")
-        page.evaluate("async () => { const p = app.plugins.plugins['better-md-diff']; p.settings.inlineHighlights = false; await p.applySettings(); }")
+        page.evaluate("async () => { const p = app.plugins.plugins['uncommitted']; p.settings.inlineHighlights = false; await p.applySettings(); }")
         page.wait_for_function("document.querySelector('.bmd-panel.bmd-no-inline-highlights')")
         assert page.locator('.bmd-row-text').evaluate_all("els => els.map(el => getComputedStyle(el).color)") == text_colors
         assert page.locator('mark.bmd-inline-change').evaluate_all("els => els.length > 0 && els.every(el => getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)')")
         assert page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue()") == items_current
-        page.evaluate("async () => { const p = app.plugins.plugins['better-md-diff']; p.settings.inlineHighlights = true; await p.applySettings(); }")
+        page.evaluate("async () => { const p = app.plugins.plugins['uncommitted']; p.settings.inlineHighlights = true; await p.applySettings(); }")
         page.wait_for_function("document.querySelector('.bmd-panel:not(.bmd-no-inline-highlights)')")
         report['checks'].append('disabling changed-word highlighting preserves red/green text and source content; re-enabling restores the existing display setting')
         page.evaluate("document.body.classList.remove('theme-dark'); document.body.classList.add('theme-light')")
         # Range flags occupy only the fixed gutter, including wrapped logical lines.
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].openFile(app.vault.getAbstractFileByPath('flags.md'))")
         page.evaluate("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.setValue(text)", flags_current)
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('flags.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('flags.md')")
         page.wait_for_function("document.querySelectorAll('.bmd-change').length === 3")
         report['source_flags'] = []
         for source in [True, False]:
@@ -658,7 +640,7 @@ try:
         page.evaluate("document.body.classList.remove('theme-dark'); document.body.classList.add('theme-light')")
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].openFile(app.vault.getAbstractFileByPath('blocks.md'))")
         page.evaluate("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.setValue(text)", blocks_current)
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('blocks.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('blocks.md')")
         page.wait_for_function("document.querySelectorAll('.bmd-change').length === 3")
         page.wait_for_function("document.querySelector('.markdown-source-view.is-live-preview table') && document.querySelector('.bmd-gutter-range--block .bmd-gutter-marker')")
         table_flag = page.locator('.bmd-gutter-range--block .bmd-gutter-marker').first
@@ -691,13 +673,13 @@ try:
             subprocess.run(['git', *command], cwd=vault, check=True, capture_output=True)
         page.wait_for_function("app.vault.getAbstractFileByPath('large.md')")
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].openFile(app.vault.getAbstractFileByPath('large.md'))")
-        page.wait_for_function("app.plugins.plugins['better-md-diff'].store.get('large.md')?.status === 'error'")
-        page.evaluate("async () => { const p = app.plugins.plugins['better-md-diff']; p.settings.maxFileMiB = 10; p.settings.maxLines = 100000; await p.applySettings(); }")
-        page.wait_for_function("app.plugins.plugins['better-md-diff'].store.get('large.md')?.status === 'ready'")
+        page.wait_for_function("app.plugins.plugins['uncommitted'].store.get('large.md')?.status === 'error'")
+        page.evaluate("async () => { const p = app.plugins.plugins['uncommitted']; p.settings.maxFileMiB = 10; p.settings.maxLines = 100000; await p.applySettings(); }")
+        page.wait_for_function("app.plugins.plugins['uncommitted'].store.get('large.md')?.status === 'ready'")
         report['checks'].append('raising limits recovers an open 2.8 MB / 30001-line note')
         large_current = '# changed\n' + large
         page.evaluate("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.setValue(text)", large_current)
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('large.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('large.md')")
         page.locator('.bmd-revert').first.click()
         page.get_by_role('button', name=confirm_label, exact=True).click()
         page.wait_for_function("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue() === text", arg=large)
@@ -705,18 +687,18 @@ try:
         page.keyboard.press('Meta+z' if os.sys.platform == 'darwin' else 'Control+z')
         page.wait_for_function("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue() === text", arg=large_current)
         report['checks'].append('large-note restoration uses fresh Git limits and supports native undo')
-        page.evaluate("async () => { await app.plugins.disablePlugin('better-md-diff'); await app.plugins.enablePlugin('better-md-diff'); }")
-        assert page.evaluate("app.plugins.plugins['better-md-diff'].settings.maxFileMiB === 10 && app.plugins.plugins['better-md-diff'].settings.maxLines === 100000")
+        page.evaluate("async () => { await app.plugins.disablePlugin('uncommitted'); await app.plugins.enablePlugin('uncommitted'); }")
+        assert page.evaluate("app.plugins.plugins['uncommitted'].settings.maxFileMiB === 10 && app.plugins.plugins['uncommitted'].settings.maxLines === 100000")
         report['checks'].append('document limits survive plugin reload')
-        page.evaluate("async () => { const p = app.plugins.plugins['better-md-diff']; p.settings.maxFileMiB = 2; p.settings.maxLines = 20000; await p.applySettings(); }")
-        page.wait_for_function("app.plugins.plugins['better-md-diff'].store.get('large.md')?.status === 'error'")
+        page.evaluate("async () => { const p = app.plugins.plugins['uncommitted']; p.settings.maxFileMiB = 2; p.settings.maxLines = 20000; await p.applySettings(); }")
+        page.wait_for_function("app.plugins.plugins['uncommitted'].store.get('large.md')?.status === 'error'")
         report['checks'].append('lowering limits invalidates previously accepted content')
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].openFile(app.vault.getAbstractFileByPath('sample.md'))")
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('sample.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('sample.md')")
         page.locator('.bmd-revert').first.wait_for()
         page.screenshot(path=str(case / 'host.png'))
         page.evaluate("path => app.workspace.getLeavesOfType('markdown')[0].openFile(app.vault.getAbstractFileByPath(path))", clean_path)
-        page.evaluate("path => app.plugins.plugins['better-md-diff'].openDiff(path)", clean_path)
+        page.evaluate("path => app.plugins.plugins['uncommitted'].openDiff(path)", clean_path)
         page.locator('.bmd-empty-title').wait_for()
         assert page.locator('.bmd-file').inner_text() == clean_path.split('/')[-1]
         assert page.locator('.bmd-stats').count() == 0
@@ -734,7 +716,7 @@ try:
         # Exercise independent scrolling and a long file name with statistics in the narrow panel.
         reading_text = ''.join(f'Generated reading line {i}\n' for i in range(120))
         page.evaluate("text => app.workspace.getLeavesOfType('markdown')[0].view.editor.setValue(text)", reading_text)
-        page.wait_for_function("text => app.plugins.plugins['better-md-diff'].store.get(app.workspace.getLeavesOfType('markdown')[0].view.file.path)?.current === text", arg=reading_text)
+        page.wait_for_function("text => app.plugins.plugins['uncommitted'].store.get(app.workspace.getLeavesOfType('markdown')[0].view.file.path)?.current === text", arg=reading_text)
         page.locator('.workspace-split.mod-right-split').evaluate("el => { el.style.width = '280px'; el.style.flexBasis = '280px'; }")
         page.wait_for_function("Math.abs(document.querySelector('.bmd-panel').getBoundingClientRect().width - 280) < 0.1")
         page.wait_for_function("document.querySelectorAll('.notice').length === 0", timeout=20000)
@@ -755,18 +737,18 @@ try:
         page.locator('.bmd-reading-guide').wait_for(state='hidden')
         report['checks'].append('closing the diff pane cleans up its reading guide')
         page.evaluate("app.workspace.getLeavesOfType('markdown')[0].openFile(app.vault.getAbstractFileByPath('sample.md'))")
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('sample.md')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('sample.md')")
         page.locator('.bmd-revert').first.wait_for()
         # Before unloading, open confirmation to exercise abort/cleanup in the actual host.
         page.locator('.bmd-revert').first.click()
-        page.evaluate("app.plugins.disablePlugin('better-md-diff')")
+        page.evaluate("app.plugins.disablePlugin('uncommitted')")
         assert page.get_by_role('button', name=confirm_label, exact=True).count() == 0
         assert page.evaluate("app.workspace.getLeavesOfType('markdown')[0].view.editor.getValue()") == current
         report['checks'].append('unload closes confirmation without writing')
         # Test popout behavior last; the isolated process teardown owns both windows.
         # CDP force-closing a popout can leave stale host leaves or hang old Electron IPC.
-        page.evaluate("app.plugins.enablePlugin('better-md-diff')")
-        page.evaluate("app.plugins.plugins['better-md-diff'].openDiff('sample.md')")
+        page.evaluate("app.plugins.enablePlugin('uncommitted')")
+        page.evaluate("app.plugins.plugins['uncommitted'].openDiff('sample.md')")
         # The reading guide must use the active popout's document, not cover the main window.
         with page.context.expect_page() as opened:
             page.evaluate("() => { app.workspace.moveLeafToPopout(app.workspace.getLeavesOfType('better-md-diff-view')[0], {width: 480, height: 640}); }")

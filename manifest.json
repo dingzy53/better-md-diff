@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "minAppVersion": "1.8.0",
   "description": "List every file that differs from the last commit, with status badges and a simple diff. A personal fork of Better MD Diff.",
-  "author": "Ding Zheng Yuan (fork of Better MD Diff by kamac)",
+  "author": "Ding Zheng Yuan",
   "authorUrl": "https://github.com/dingzy53",
   "isDesktopOnly": true
 }

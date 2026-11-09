@@ -1,10 +1,10 @@
 import { normalizeText, type LineChange } from './diff';
 import type { GitBaseline } from './git';
 import type { ReadyDiffState } from './store';
-import { LocalizedError, type MessageKey } from './i18n';
+import { PluginError } from './errors';
 
 export interface RevertEdit { from: number; to: number; text: string }
-const staleMessage = '文档或 HEAD 已变化，请刷新差异后重新选择要还原的区块。';
+const staleMessage = 'The document or HEAD changed. Refresh the diff and select the change again.';
 
 /** Only an original, contiguous change is a write target; display hunks are never accepted. */
 export function prepareChangeRevert(snapshot: ReadyDiffState, change: LineChange, current: string, baseline: GitBaseline): RevertEdit[] {
@@ -13,13 +13,13 @@ export function prepareChangeRevert(snapshot: ReadyDiffState, change: LineChange
     || baseline.head !== snapshot.baseline.head
     || baseline.isNew !== snapshot.baseline.isNew
     || normalizeText(baseline.content) !== normalizeText(snapshot.baseline.content)) {
-    throw new LocalizedError(staleMessage);
+    throw new PluginError(staleMessage);
   }
   return prepareTextRevert(change, current, baseline.content, staleMessage);
 }
 
 /** Callers validate snapshot ownership and freshness before preparing the single edit. */
-export function prepareTextRevert(change: LineChange, current: string, baselineContent: string, staleMessage: MessageKey): RevertEdit[] {
+export function prepareTextRevert(change: LineChange, current: string, baselineContent: string, staleMessage: string): RevertEdit[] {
   const currentLines = current.match(/[^\n]*\n|[^\n]+$/g) ?? [];
   const oldLines = baselineContent.match(/[^\n]*\n|[^\n]+$/g) ?? [];
   const offsets = [0];
@@ -28,12 +28,12 @@ export function prepareTextRevert(change: LineChange, current: string, baselineC
   const added = change.rows.filter((row) => row.kind === 'added');
   const removed = change.rows.filter((row) => row.kind === 'deleted');
   const expected = added.map((row) => row.text + (row.noNewline ? '' : '\n')).join('');
-  if (from === undefined || to === undefined || normalizeText(current.slice(from, to)) !== expected) throw new LocalizedError(staleMessage);
+  if (from === undefined || to === undefined || normalizeText(current.slice(from, to)) !== expected) throw new PluginError(staleMessage);
   const nearby = currentLines[change.from] ?? currentLines[change.from - 1] ?? '';
   const eol = nearby.match(/\r?\n$/)?.[0] ?? current.match(/\r?\n/)?.[0] ?? baselineContent.match(/\r?\n/)?.[0] ?? '\n';
   const text = removed.map((row) => {
     const original = oldLines[row.oldLine! - 1];
-    if (original === undefined) throw new LocalizedError(staleMessage);
+    if (original === undefined) throw new PluginError(staleMessage);
     return original.replace(/\r?\n/g, eol);
   }).join('');
   return [{ from, to, text }];

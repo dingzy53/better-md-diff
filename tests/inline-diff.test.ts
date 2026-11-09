@@ -25,23 +25,23 @@ describe('intraline highlights in the diff panel', () => {
     }
   });
 
-  it('highlights only a removed Chinese phrase, not the rest of the line', () => {
-    const { changed } = compare('仅为验证对照组，不是备选方案。\n', '仅为验证对照组。\n');
-    expect(changed('deleted')).toEqual(['，不是备选方案']);
+  it('highlights only a removed phrase, not the rest of the line', () => {
+    const { changed } = compare('Control only, not an alternative.\n', 'Control only.\n');
+    expect(changed('deleted')).toEqual([', not an alternative']);
     expect(changed('added')).toEqual(['']);
   });
 
-  it('highlights insertions and replacements in Chinese and code', () => {
-    const text = compare('奖励 100 金币。\n', '奖励 200 金币和宝石。\n');
+  it('highlights insertions and replacements in text and code', () => {
+    const text = compare('Reward 100 coins.\n', 'Reward 200 coins and gems.\n');
     expect(text.changed('deleted')).toEqual(['1']);
-    expect(text.changed('added')).toEqual(['2和宝石']);
+    expect(text.changed('added')).toEqual(['2 and gems']);
     const code = compare('greet("World");\n', 'greet("World", 3); // Hello!\n');
     expect(code.changed('deleted')).toEqual(['']);
     expect(code.changed('added')).toEqual([', 3 // Hello!']);
   });
 
   it('isolates the two trailing spaces added by save-time formatting', () => {
-    const { rows, result, changed } = compare('- 原来的正文\n  连续正文\n  最后一行\n', '- 原来的正文  \n  连续正文  \n  最后一行\n');
+    const { rows, result, changed } = compare('- Original body\n  Continued body\n  Last line\n', '- Original body  \n  Continued body  \n  Last line\n');
     expect(changed('deleted')).toEqual(['', '']);
     expect(changed('added')).toEqual(['  ', '  ']);
     expect(rows.filter((row) => row.kind === 'context').every((row) => result.segments.get(row)!.every((segment) => !segment.changed))).toBe(true);
@@ -60,12 +60,12 @@ describe('intraline highlights in the diff panel', () => {
   });
 
   it('highlights whole added/deleted lines and preserves blank lines', () => {
-    expect(compare('', '新增一行\n\n').changed('added')).toEqual(['新增一行', '']);
-    expect(compare('删除一行\n', '').changed('deleted')).toEqual(['删除一行']);
+    expect(compare('', 'Added line\n\n').changed('added')).toEqual(['Added line', '']);
+    expect(compare('Deleted line\n', '').changed('deleted')).toEqual(['Deleted line']);
   });
 
   it('does not split emoji sequences or combining characters', () => {
-    const { changed } = compare('状态 👩‍💻 café\n', '状态 👨‍💻 cafè\n');
+    const { changed } = compare('Status 👩‍💻 café\n', 'Status 👨‍💻 cafè\n');
     expect(changed('deleted')).toEqual(['👩‍💻é']);
     expect(changed('added')).toEqual(['👨‍💻è']);
   });
@@ -110,7 +110,7 @@ describe('intraline highlights in the diff panel', () => {
   });
 
   it('renders deeper highlights and visible whitespace without changing copied text', () => {
-    const { rows, result } = compare('正文\n', '正文 \t \n');
+    const { rows, result } = compare('Body\n', 'Body \t \n');
     const row = rows.find((candidate) => candidate.kind === 'added')!;
     const code = document.createElement('code');
     renderHighlightedText(code, row, result.segments.get(row)!);

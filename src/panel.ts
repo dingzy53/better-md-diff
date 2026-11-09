@@ -2,8 +2,7 @@ import { ItemView, setIcon, type WorkspaceLeaf } from 'obsidian';
 import { changeAnchor, changeRange, type DiffHunk, type DiffRow, type LineChange } from './diff';
 import type { DiffStore, ReadyDiffState } from './store';
 import type { DiffSettings } from './options';
-import { highlightHunks, localizeHighlightedText, pairDiffRows, renderHighlightedText, type InlineHighlights } from './inline-diff';
-import { onLanguageChange, t, type MessageKey } from './i18n';
+import { highlightHunks, pairDiffRows, renderHighlightedText, type InlineHighlights } from './inline-diff';
 import { centerDiffChange, findDiffLocation, revealDiffRow } from './diff-navigation';
 import { selectedDiffText } from './diff-copy';
 import { ReadingGuideModal } from './reading-guide';
@@ -62,17 +61,16 @@ export class DiffPanel extends ItemView {
   private helpModal?: ReadingGuideModal;
   private refreshRequest?: symbol;
   private summaryKey?: string;
-  private feedbackKey?: MessageKey;
 
   constructor(leaf: WorkspaceLeaf, private host: DiffPanelHost) { super(leaf); }
   getViewType(): string { return DIFF_VIEW; }
-  getDisplayText(): string { return t('Git 差异'); }
+  getDisplayText(): string { return 'Git diff'; }
   getIcon(): string { return DIFF_ICON; }
 
   async onOpen(): Promise<void> {
     this.contentEl.addClass('bmd-panel');
     const toolbar = this.contentEl.createDiv({ cls: 'bmd-toolbar' });
-    this.refreshButton = toolbar.createEl('button', { cls: 'bmd-refresh', text: t('刷新'), attr: { type: 'button', 'aria-label': t('重新读取 HEAD 并刷新差异') } });
+    this.refreshButton = toolbar.createEl('button', { cls: 'bmd-refresh', text: 'Refresh', attr: { type: 'button', 'aria-label': 'Check HEAD and refresh the diff' } });
     this.refreshButton.addEventListener('click', () => { void this.refreshCurrent(); });
     this.navigationEl = toolbar.createDiv({ cls: 'bmd-navigation', attr: { role: 'group' } });
     this.previous = this.navigationEl.createEl('button', { cls: 'bmd-previous bmd-icon-button', attr: { type: 'button' } });
@@ -93,7 +91,7 @@ export class DiffPanel extends ItemView {
       this.helpModal.open();
     });
     this.register(() => this.helpModal?.close());
-    this.localizeToolbar();
+    this.setToolbarLabels();
     this.feedback = this.contentEl.createDiv({ cls: 'bmd-feedback', attr: { role: 'status' } });
     this.summary = this.contentEl.createDiv({ cls: 'bmd-summary', attr: { 'aria-live': 'polite', role: 'status' } });
     this.body = this.contentEl.createDiv({ cls: 'bmd-diff-body' });
@@ -110,19 +108,6 @@ export class DiffPanel extends ItemView {
       if (this.pendingRender && !this.hasTextSelection()) this.render();
     });
     this.register(this.host.store.subscribe((path) => { if (path === this.path) this.render(); }));
-    this.register(onLanguageChange(() => {
-      this.summaryKey = undefined;
-      this.localizeToolbar();
-      this.updateRefreshButton();
-      if (this.feedbackKey) this.feedback.setText(t(this.feedbackKey));
-      this.items.forEach((item, index) => this.localizeItem(item, index));
-      this.cards.forEach((card) => {
-        this.localizeCard(card);
-        card.hunk.rows.forEach((row, i) => localizeHighlightedText(card.rows[i]!.querySelector<HTMLElement>('.bmd-row-text')!, row));
-      });
-      if (this.rendered && !this.cards.length) this.renderEmptyState();
-      this.render();
-    }));
     this.setFile(this.host.currentPath());
   }
 
@@ -130,7 +115,7 @@ export class DiffPanel extends ItemView {
     if (this.path !== path) {
       this.selected = 0; this.followedLine = undefined; this.rendered = undefined;
       this.refreshRequest = undefined; this.pendingRender = false;
-      this.cards = []; this.items = []; this.body?.empty(); this.feedback?.empty(); this.feedbackKey = undefined; this.summaryKey = undefined;
+      this.cards = []; this.items = []; this.body?.empty(); this.feedback?.empty(); this.summaryKey = undefined;
     }
     this.path = path;
     if (this.body) { this.updateRefreshButton(); this.render(); }
@@ -140,33 +125,32 @@ export class DiffPanel extends ItemView {
     if (!this.path || this.refreshRequest) return;
     const request = this.refreshRequest = Symbol();
     this.updateRefreshButton();
-    this.setFeedback('正在检查 Git 基准…');
+    this.setFeedback('Checking the Git baseline…');
     try {
       await this.host.refresh(this.path);
-      if (this.refreshRequest === request) this.setFeedback(this.pendingRender ? '内容已更新；结束文本选择后刷新展示。' : '已刷新 Git 基准。');
+      if (this.refreshRequest === request) this.setFeedback(this.pendingRender ? 'Content has changed. Finish selecting text to update the view.' : 'Git baseline refreshed.');
     } catch (error) {
       if (this.refreshRequest === request) {
-        this.feedbackKey = undefined;
-        this.feedback.setText(error instanceof Error ? error.message : t('刷新失败，请重试。'));
+        this.feedback.setText(error instanceof Error ? error.message : 'Refresh failed. Please try again.');
       }
     } finally {
       if (this.refreshRequest === request) { this.refreshRequest = undefined; this.updateRefreshButton(); }
     }
   }
 
-  private setFeedback(key: MessageKey): void { this.feedbackKey = key; this.feedback.setText(t(key)); }
+  private setFeedback(text: string): void { this.feedback.setText(text); }
 
-  private localizeToolbar(): void {
-    this.navigationEl.setAttribute('aria-label', t('变更导航'));
-    for (const [button, key] of [[this.previous, '上一处'], [this.next, '下一处'], [this.helpButton, '阅读说明'], [this.refreshButton, '重新读取 HEAD 并刷新差异']] as const) {
-      button.setAttribute('aria-label', t(key));
-      button.title = t(key);
+  private setToolbarLabels(): void {
+    this.navigationEl.setAttribute('aria-label', 'Change navigation');
+    for (const [button, label] of [[this.previous, 'Previous'], [this.next, 'Next'], [this.helpButton, 'Reading guide'], [this.refreshButton, 'Check HEAD and refresh the diff']] as const) {
+      button.setAttribute('aria-label', label);
+      button.title = label;
     }
   }
 
   private updateRefreshButton(): void {
     this.refreshButton.disabled = !this.path || !!this.refreshRequest;
-    this.refreshButton.setText(t(this.refreshRequest ? '刷新中…' : '刷新'));
+    this.refreshButton.setText(this.refreshRequest ? 'Refreshing…' : 'Refresh');
     this.refreshButton.setAttribute('aria-busy', String(!!this.refreshRequest));
   }
 
@@ -226,8 +210,9 @@ export class DiffPanel extends ItemView {
   }
 
   private updateProgress(): void {
-    const progress = t('改动 {index} / {total}', { index: this.items.length ? this.selected + 1 : 0, total: this.items.length });
-    const label = this.items.length ? progress : t('0 处变更');
+    const index = this.items.length ? this.selected + 1 : 0;
+    const progress = `Change ${index} / ${this.items.length}`;
+    const label = this.items.length ? progress : 'No changes';
     this.progress.setText(progress);
     this.progress.setAttribute('aria-label', label);
     this.progress.title = label;
@@ -260,17 +245,17 @@ export class DiffPanel extends ItemView {
     const state = this.path ? this.host.store.get(this.path) : undefined;
     if (state?.status === 'ready' && this.rendered && state !== this.rendered && this.hasTextSelection()) {
       this.pendingRender = true;
-      this.setFeedback('内容已更新；结束文本选择后刷新展示。');
+      this.setFeedback('Content has changed. Finish selecting text to update the view.');
       for (const item of this.items) { item.revert.disabled = true; item.jump.disabled = true; }
       this.updateProgress(); return;
     }
-    if (this.pendingRender) { this.pendingRender = false; this.feedback.empty(); this.feedbackKey = undefined; }
+    if (this.pendingRender) { this.pendingRender = false; this.feedback.empty(); }
     if (state?.status !== 'ready') {
       this.cards = []; this.items = []; this.rendered = undefined; this.rowElements.clear(); this.rowPairs.clear(); this.clearCurrentRow();
       this.body.empty(); this.summaryKey = undefined;
       this.summary.empty();
       if (this.path) this.renderFileInfo(this.path);
-      this.summary.createDiv({ cls: 'bmd-message', text: !this.path ? t('打开一个 Markdown 文档以查看 Git 差异。') : state?.status === 'error' ? state.message : t('正在读取 Git…') });
+      this.summary.createDiv({ cls: 'bmd-message', text: !this.path ? 'Open a Markdown note to view its Git diff.' : state?.status === 'error' ? state.message : 'Reading Git…' });
       this.updateProgress(); return;
     }
     const digits = String(Math.max(state.diff.lineCount, state.diff.lineCount - state.diff.added + state.diff.deleted)).length;
@@ -284,16 +269,16 @@ export class DiffPanel extends ItemView {
       const base = this.summary.createDiv({ cls: 'bmd-base' });
       const reference = base.createSpan({ cls: 'bmd-baseline-ref' });
       reference.createSpan({ text: 'HEAD' });
-      reference.createEl('code', { cls: 'bmd-ref', text: state.baseline.head?.slice(0, 8) ?? t('尚无提交'), attr: { title: state.baseline.head ?? t('尚无提交') } });
+      reference.createEl('code', { cls: 'bmd-ref', text: state.baseline.head?.slice(0, 8) ?? 'no commits yet', attr: { title: state.baseline.head ?? 'no commits yet' } });
       base.createSpan({ cls: 'bmd-base-arrow', text: '→', attr: { 'aria-hidden': 'true' } });
-      base.createSpan({ text: t('当前内容') });
-      if (state.baseline.isNew) base.createSpan({ cls: 'bmd-new-file', text: t('新纳入文件') });
+      base.createSpan({ text: 'Current content' });
+      if (state.baseline.isNew) base.createSpan({ cls: 'bmd-new-file', text: 'Newly tracked' });
       if (state.diff.added || state.diff.deleted) {
-        const stats = heading.createDiv({ cls: 'bmd-stats', attr: { role: 'group', 'aria-label': t('新增 {added} 行，删除 {deleted} 行', { added: state.diff.added, deleted: state.diff.deleted }) } });
-        if (state.diff.added) stats.createSpan({ cls: 'bmd-stat-added', text: `+${state.diff.added}`, attr: { title: t('+{count} 新增', { count: state.diff.added }) } });
-        if (state.diff.deleted) stats.createSpan({ cls: 'bmd-stat-deleted', text: `−${state.diff.deleted}`, attr: { title: t('−{count} 删除', { count: state.diff.deleted }) } });
+        const stats = heading.createDiv({ cls: 'bmd-stats', attr: { role: 'group', 'aria-label': `${state.diff.added} added lines, ${state.diff.deleted} deleted lines` } });
+        if (state.diff.added) stats.createSpan({ cls: 'bmd-stat-added', text: `+${state.diff.added}`, attr: { title: `+${state.diff.added} added` } });
+        if (state.diff.deleted) stats.createSpan({ cls: 'bmd-stat-deleted', text: `−${state.diff.deleted}`, attr: { title: `−${state.diff.deleted} deleted` } });
       }
-      if (this.cards.some((card) => card.limited)) this.summary.createDiv({ cls: 'bmd-hint', text: t('部分变更较大，已回退为整行高亮；完整增删内容仍保留。') });
+      if (this.cards.some((card) => card.limited)) this.summary.createDiv({ cls: 'bmd-hint', text: 'Some changes exceed the refinement budget and use whole-line highlights. All added and deleted content is retained.' });
     }
     this.updateProgress();
   }
@@ -311,8 +296,8 @@ export class DiffPanel extends ItemView {
     const empty = this.body.createDiv({ cls: 'bmd-empty', attr: { role: 'status' } });
     setIcon(empty.createSpan({ cls: 'bmd-empty-icon', attr: { 'aria-hidden': 'true' } }), 'check');
     const message = empty.createDiv();
-    message.createEl('h3', { cls: 'bmd-empty-title', text: t('与 HEAD 一致') });
-    message.createEl('p', { cls: 'bmd-empty-description', text: t('继续编辑此文档，差异会自动显示在这里。') });
+    message.createEl('h3', { cls: 'bmd-empty-title', text: 'Matches HEAD' });
+    message.createEl('p', { cls: 'bmd-empty-description', text: 'Keep editing this note. Changes will appear here automatically.' });
   }
 
   private reconcile(state: ReadyDiffState): void {
@@ -334,7 +319,7 @@ export class DiffPanel extends ItemView {
     this.cards = plans.map(({ hunk, key, card }, index) => {
       card ??= this.createCard(hunk, key, highlights, state, changesByRow);
       card.hunk = hunk;
-      this.localizeCard(card);
+      this.updateCardLabel(card);
       for (const item of card.items) {
         item.change = changesByRow.get(hunk.rows[item.rowIndex]!)!;
         item.snapshot = state; item.revert.disabled = false; item.jump.disabled = false;
@@ -351,7 +336,7 @@ export class DiffPanel extends ItemView {
       return card;
     });
     this.items = this.cards.flatMap((card) => card.items);
-    this.items.forEach((item, index) => this.localizeItem(item, index));
+    this.items.forEach((item, index) => this.updateItemLabels(item, index));
     this.selected = Math.max(0, selectedItem && this.items.includes(selectedItem) ? this.items.indexOf(selectedItem) : Math.min(this.selected, this.items.length - 1));
     this.rendered = state;
     if (!this.cards.length) this.renderEmptyState();
@@ -359,26 +344,26 @@ export class DiffPanel extends ItemView {
     if (this.followedLine !== undefined) this.showLine(this.followedLine, false);
   }
 
-  private localizeCard(card: HunkCard): void {
+  private updateCardLabel(card: HunkCard): void {
     const current = card.hunk.rows.filter((row) => row.newLine !== null);
     const lines = current.length ? current.map((row) => row.newLine!) : card.hunk.rows.map((row) => row.oldLine!);
     const from = lines[0]!, to = lines[lines.length - 1]!;
     const range = current.length
-      ? t(from === to ? '当前 {from} 行' : '当前 {from}–{to} 行', { from, to })
-      : t(from === to ? 'HEAD {from} 行' : 'HEAD {from}–{to} 行', { from, to });
-    const label = t(card.items.length === 1 ? '{range} · 1 处改动' : '{range} · {count} 处改动', { range, count: card.items.length });
+      ? (from === to ? `Current line ${from}` : `Current lines ${from}–${to}`)
+      : (from === to ? `HEAD line ${from}` : `HEAD lines ${from}–${to}`);
+    const label = `${range} · ${card.items.length} ${card.items.length === 1 ? 'change' : 'changes'}`;
     card.heading.setText(label);
-    card.heading.title = t('{label}：定位此区块的第一项改动', { label });
+    card.heading.title = `${label}: Go to the first change in this block`;
     card.heading.setAttribute('aria-label', card.heading.title);
   }
 
-  private localizeItem(item: ChangeItem, index: number): void {
+  private updateItemLabels(item: ChangeItem, index: number): void {
     const range = changeRange(item.change);
-    const label = t('改动 {index} · {range}', { index: index + 1, range });
+    const label = `Change ${index + 1} · ${range}`;
     item.element.setAttribute('aria-label', label);
-    item.jump.title = t('定位第 {index} 项改动：{range}', { index: index + 1, range });
+    item.jump.title = `Reveal change ${index + 1} in the editor: ${range}`;
     item.jump.setAttribute('aria-label', item.jump.title);
-    item.revert.title = t('还原第 {index} 项：{range}', { index: index + 1, range });
+    item.revert.title = `Restore change ${index + 1}: ${range}`;
     item.revert.setAttribute('aria-label', item.revert.title);
   }
 
@@ -419,7 +404,7 @@ export class DiffPanel extends ItemView {
       line.createSpan({ cls: 'bmd-sign', text: row.kind === 'added' ? '+' : row.kind === 'deleted' ? '−' : ' ' });
       const text = line.createEl('code', { cls: 'bmd-row-text' });
       renderHighlightedText(text, row, highlights.segments.get(row)!);
-      if (row.noNewline) text.createSpan({ cls: 'bmd-no-newline', text: t(' ⏎ 无末尾换行') });
+      if (row.noNewline) text.createSpan({ cls: 'bmd-no-newline', text: ' ⏎ no final newline' });
     }
     return card;
   }

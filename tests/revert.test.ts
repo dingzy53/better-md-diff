@@ -37,7 +37,7 @@ describe('independent change restoration', () => {
     ['alpha\nbeta\n', 'alpha\n'], ['alpha\nbeta', 'alpha\n'],
     ['alpha', 'alpha\n'], ['alpha\n', 'alpha'], ['alpha\n', ''],
     ['', 'new file\n'], ['\n\n', '\n'],
-    ['中文 👩‍💻\n最后一行', '中文 🧪\n增加\n最后一行\n'],
+    ['Café 👩‍💻\nLast line', 'Café 🧪\nAdded\nLast line\n'],
   ])('restores %j from %j, including EOF and empty documents', (before, current) => {
     expect(revertAll(before, current)).toBe(before);
   });
@@ -79,12 +79,12 @@ describe('independent change restoration', () => {
   it('rejects stale text, changed HEAD/baseline, a cloned change or a display hunk', () => {
     const state = snapshot('old\nkeep\nother\n', 'new\nkeep\nchanged\n');
     const change = state.diff.changes[0]!;
-    expect(() => prepareChangeRevert(state, change, 'newer\n', state.baseline)).toThrow('已变化');
-    expect(() => prepareChangeRevert(state, change, state.current, { ...state.baseline, head: 'head-b' })).toThrow('已变化');
-    expect(() => prepareChangeRevert(state, change, state.current, { ...state.baseline, content: 'different\n' })).toThrow('已变化');
-    expect(() => prepareChangeRevert(state, { ...change }, state.current, state.baseline)).toThrow('已变化');
+    expect(() => prepareChangeRevert(state, change, 'newer\n', state.baseline)).toThrow('changed');
+    expect(() => prepareChangeRevert(state, change, state.current, { ...state.baseline, head: 'head-b' })).toThrow('changed');
+    expect(() => prepareChangeRevert(state, change, state.current, { ...state.baseline, content: 'different\n' })).toThrow('changed');
+    expect(() => prepareChangeRevert(state, { ...change }, state.current, state.baseline)).toThrow('changed');
     // Display groups must not accidentally become write targets again.
-    expect(() => prepareChangeRevert(state, Object.assign({}, change, state.diff.hunks[0]), state.current, state.baseline)).toThrow('已变化');
+    expect(() => prepareChangeRevert(state, Object.assign({}, change, state.diff.hunks[0]), state.current, state.baseline)).toThrow('changed');
   });
 
   it('clears a newly tracked file without deleting it', () => {
@@ -95,13 +95,13 @@ describe('independent change restoration', () => {
   it('round-trips repeated blanks, duplicate paragraphs, Markdown and EOF changes without losing text', () => {
     let seed = 41;
     const random = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
-    const pool = ['', '', ' \t', '**Alpha:** paragraph.', 'Beta paragraph.', '重复内容 👩‍💻', '| A | B |', '```'];
+    const pool = ['', '', ' \t', '**Alpha:** paragraph.', 'Beta paragraph.', 'Repeated 👩‍💻', '| A | B |', '```'];
     for (let sample = 0; sample < 200; sample++) {
       const old: string[] = [], current: string[] = [];
       for (let i = 0; i < 24; i++) {
         const line = pool[Math.floor(random() * pool.length)]!;
         old.push(line);
-        if (random() < 0.2) current.push('新增一行');
+        if (random() < 0.2) current.push('Added line');
         if (random() < 0.2) continue;
         current.push(random() < 0.4 ? line + '1' : line);
       }
@@ -122,11 +122,11 @@ describe('independent change restoration', () => {
     for (let sample = 0; sample < 200; sample++) {
       const old: string[] = [], current: string[] = [];
       for (let i = 0; i < 35; i++) {
-        const text = `行 ${i} 🧪`;
+        const text = `Line ${i} 🧪`;
         old.push(text);
-        if (random() < 0.3) current.push(`插入 ${i}`);
+        if (random() < 0.3) current.push(`Insert ${i}`);
         if (random() < 0.2) continue;
-        current.push(random() < 0.25 ? `修改 ${text}` : text);
+        current.push(random() < 0.25 ? `Edit ${text}` : text);
       }
       const before = old.join('\n') + (random() < 0.5 ? '\n' : '');
       const after = current.join('\n') + (random() < 0.5 ? '\n' : '');
@@ -163,13 +163,13 @@ describe('confirmation write barrier', () => {
     let text = state.current;
     const target = { getValue: () => text, apply: vi.fn() };
     const read = async () => { text = 'newer text\n'; return state.baseline; };
-    await expect(executeChangeRevert(state, change, read, target, new AbortController().signal)).rejects.toThrow('已变化');
+    await expect(executeChangeRevert(state, change, read, target, new AbortController().signal)).rejects.toThrow('changed');
     expect(target.apply).not.toHaveBeenCalled();
   });
   it('does not write on Git failure or changed HEAD', async () => {
     const target = { getValue: () => state.current, apply: vi.fn() };
     await expect(executeChangeRevert(state, change, async () => { throw new Error('Git failed'); }, target, new AbortController().signal)).rejects.toThrow('Git failed');
-    await expect(executeChangeRevert(state, change, async () => ({ ...state.baseline, head: 'head-b' }), target, new AbortController().signal)).rejects.toThrow('已变化');
+    await expect(executeChangeRevert(state, change, async () => ({ ...state.baseline, head: 'head-b' }), target, new AbortController().signal)).rejects.toThrow('changed');
     expect(target.apply).not.toHaveBeenCalled();
   });
 });

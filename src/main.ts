@@ -1,4 +1,4 @@
-import { editorInfoField, FileSystemAdapter, getLanguage as getObsidianLanguage, MarkdownView, Notice, Plugin, requireApiVersion, setTooltip, TFile, type Command } from 'obsidian';
+import { editorInfoField, FileSystemAdapter, MarkdownView, Notice, Plugin, TFile, type Command } from 'obsidian';
 import { editorDiffExtension } from './editor';
 import { GitBaselineReader, readGitBaseline, GitReadError, type BaselineRead, type GitBaseline } from './git';
 // fork: changes list
@@ -14,7 +14,7 @@ import { normalizeText, type LineChange } from './diff';
 import { executeChangeRevert } from './revert';
 import { RevertChangeModal } from './revert-modal';
 import { revealSourceLine } from './source-navigation';
-import { languageForObsidian, LocalizedError, onLanguageChange, setLanguage, t, type MessageKey } from './i18n';
+import { PluginError } from './errors';
 
 export default class BetterMdDiff extends Plugin {
   settings: DiffSettings = { ...DEFAULT_SETTINGS };
@@ -35,12 +35,7 @@ export default class BetterMdDiff extends Plugin {
   private gitPollTimer?: number;
   private appliedReadSettings = { ...DEFAULT_SETTINGS };
 
-  private syncLanguage(): void {
-    setLanguage(languageForObsidian(requireApiVersion('1.8.7') ? getObsidianLanguage() : document.documentElement.lang));
-  }
-
   async onload(): Promise<void> {
-    this.syncLanguage();
     // fork: read both upstream settings and the changes list settings once.
     const raw = await this.loadData() as Record<string, unknown> | null;
     this.changesSettings = normalizeChangesSettings(raw?.changes, this.changesDefaults());
@@ -48,7 +43,7 @@ export default class BetterMdDiff extends Plugin {
     this.appliedReadSettings = { ...this.settings };
     const adapter = this.app.vault.adapter;
     if (!(adapter instanceof FileSystemAdapter)) {
-      new Notice(t('Better MD Diff 仅支持桌面端本地仓库。'));
+      new Notice('Uncommitted works with local repositories on desktop only.');
       return;
     }
     this.reader = new GitBaselineReader(adapter.getBasePath(), this.settings.gitPath, this.settings);
@@ -70,28 +65,18 @@ export default class BetterMdDiff extends Plugin {
       open: (path, line, preferDeletion) => { void this.openDiff(path, line, preferDeletion); },
       select: (path, line) => this.followSelection(path, line),
     }));
-    const settingsTab = new DiffSettingTab(this.app, this);
-    this.addSettingTab(settingsTab);
-    const ribbon = this.addRibbonIcon(DIFF_ICON, t('查看当前文档的 Git 差异'), () => { void this.openDiff(); });
-    this.register(onLanguageChange(() => {
-      this.revertModal?.close(); // Changing the prompt language must never keep a pending write alive.
-      setTooltip(ribbon, t('查看当前文档的 Git 差异'));
-      if (requireApiVersion('1.13.0')) settingsTab.update();
-      else if (settingsTab.containerEl.isShown()) settingsTab.renderLegacy();
-      this.store.updatePresentation(this.settings.contextLines);
-      this.updateStatus();
-    }));
-    const addCommand = (name: MessageKey, command: Omit<Command, 'name'>) => {
-      const registered = this.addCommand({ ...command, name: t(name) });
-      this.register(onLanguageChange(() => { registered.name = `${this.manifest.name}: ${t(name)}`; }));
+    this.addSettingTab(new DiffSettingTab(this.app, this));
+    this.addRibbonIcon(DIFF_ICON, 'View the current document’s Git diff', () => { void this.openDiff(); });
+    const addCommand = (name: string, command: Omit<Command, 'name'>) => {
+      this.addCommand({ ...command, name });
     };
-    addCommand('查看当前文档与 HEAD 的差异', { id: 'open-diff', checkCallback: (checking) => {
+    addCommand('Compare the current document with HEAD', { id: 'open-diff', checkCallback: (checking) => {
       if (!this.selectedPath || this.stopped) return false;
       if (!checking) void this.openDiff();
       return true;
     } });
-    addCommand('刷新 Git 差异', { id: 'refresh-diff', callback: () => { void this.refreshOpenFiles(); } });
-    for (const direction of [-1, 1] as const) addCommand(direction === 1 ? '定位下一处差异' : '定位上一处差异', {
+    addCommand('Refresh Git diff', { id: 'refresh-diff', callback: () => { void this.refreshOpenFiles(); } });
+    for (const direction of [-1, 1] as const) addCommand(direction === 1 ? 'Go to next change' : 'Go to previous change', {
       id: direction === 1 ? 'next-change' : 'previous-change',
       checkCallback: (checking) => {
         const state = this.selectedPath ? this.store.get(this.selectedPath) : undefined;
@@ -100,13 +85,13 @@ export default class BetterMdDiff extends Plugin {
         return true;
       },
     });
-    addCommand('切换原文差异标记', { id: 'toggle-markers', callback: () => {
+    addCommand('Toggle editor diff markers', { id: 'toggle-markers', callback: () => {
       this.settings.showMarkers = !this.settings.showMarkers;
       void this.applySettings();
     } });
     this.registerEvent(this.app.workspace.on('file-menu', (menu, file) => {
       if (file instanceof TFile && file.extension.toLowerCase() === 'md') {
-        menu.addItem((item) => item.setTitle(t('查看 Git 差异')).setIcon(DIFF_ICON).onClick(() => { void this.openDiff(file.path); }));
+        menu.addItem((item) => item.setTitle('View Git diff').setIcon(DIFF_ICON).onClick(() => { void this.openDiff(file.path); }));
       }
     }));
     this.status = this.addStatusBarItem();
@@ -146,7 +131,7 @@ export default class BetterMdDiff extends Plugin {
       saveCollapsedFolders: (paths) => this.saveCollapsedFolders(paths),
     });
     this.restartPolling();
-    this.registerDomEvent(window, 'focus', () => { this.syncLanguage(); void this.refreshOpenFiles(); });
+    this.registerDomEvent(window, 'focus', () => { void this.refreshOpenFiles(); });
     this.app.workspace.onLayoutReady(() => {
       if (this.stopped) return;
       if (!this.selectedPath) {
@@ -236,7 +221,7 @@ export default class BetterMdDiff extends Plugin {
       const content = await this.currentContent(file);
       if (!this.stopped && this.contentReads.get(path) === request) await this.store.refresh(path, content, force, readBaseline);
     } catch (error) {
-      if (!this.stopped && this.contentReads.get(path) === request) this.store.reportError(path, error instanceof Error ? error.message : t('读取文档失败。'));
+      if (!this.stopped && this.contentReads.get(path) === request) this.store.reportError(path, error instanceof Error ? error.message : 'Failed to read the document.');
     }
   }
 
@@ -277,15 +262,15 @@ export default class BetterMdDiff extends Plugin {
   private updateStatus(): void {
     if (!this.status) return;
     const state = this.selectedPath ? this.store.get(this.selectedPath) : undefined;
-    const text = state?.status === 'ready' ? `Git +${state.diff.added} −${state.diff.deleted}` : state?.status === 'error' ? t('Git：不可比较') : 'Git Diff';
+    const text = state?.status === 'ready' ? `Git +${state.diff.added} −${state.diff.deleted}` : state?.status === 'error' ? 'Git: unavailable' : 'Git Diff';
     this.status.setText(text);
-    this.status.setAttribute('aria-label', t('{text}，查看差异', { text }));
-    this.status.title = state?.status === 'error' ? state.message : t('查看当前文档相对 HEAD 的差异');
+    this.status.setAttribute('aria-label', `${text}, view diff`);
+    this.status.title = state?.status === 'error' ? state.message : 'View the current document’s changes from HEAD';
   }
 
   async openDiff(path = this.selectedPath, line?: number, preferDeletion = false): Promise<void> {
     if (this.stopped || !this.store) return;
-    if (!path) { new Notice(t('请先打开一个 Markdown 文档。')); return; }
+    if (!path) { new Notice('Open a Markdown document first.'); return; }
     const editorView = this.app.workspace.getActiveViewOfType(MarkdownView);
     const targetLine = line ?? (editorView?.file?.path === path && editorView.getMode() === 'source' ? editorView.editor.getCursor('head').line : undefined);
     this.setSelected(path);
@@ -311,7 +296,7 @@ export default class BetterMdDiff extends Plugin {
 
   private async navigate(path: string, line: number, focus = true, center = false): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof TFile)) { new Notice(t('文档已移动或删除。')); return; }
+    if (!(file instanceof TFile)) { new Notice('The document was moved or deleted.'); return; }
     const matches = this.app.workspace.getLeavesOfType('markdown').filter((candidate) => candidate.view instanceof MarkdownView && candidate.view.file?.path === path);
     const recent = this.app.workspace.getMostRecentLeaf();
     const leaf = matches.find((candidate) => candidate === recent && candidate.view.containerEl.isShown())
@@ -338,18 +323,18 @@ export default class BetterMdDiff extends Plugin {
       signal.throwIfAborted();
       const file = this.app.vault.getAbstractFileByPath(snapshot.path);
       const adapter = this.app.vault.adapter;
-      if (!(file instanceof TFile) || !(adapter instanceof FileSystemAdapter)) throw new LocalizedError('文档已移动或删除，无法还原。');
+      if (!(file instanceof TFile) || !(adapter instanceof FileSystemAdapter)) throw new PluginError('The document was moved or deleted and cannot be restored.');
       const leaf = this.app.workspace.getLeavesOfType('markdown').find((candidate) => candidate.view instanceof MarkdownView && candidate.view.file?.path === snapshot.path && candidate.view.getMode() === 'source' && candidate.view.containerEl.isShown());
       const view = leaf?.view;
-      if (!leaf || !(view instanceof MarkdownView)) throw new LocalizedError('请先在源码编辑或实时预览中打开此文档，再还原此处。');
+      if (!leaf || !(view instanceof MarkdownView)) throw new PluginError('Open this document in source mode or Live Preview before restoring a change.');
       const editor = view.editor;
       await executeChangeRevert(snapshot, change,
         () => readGitBaseline(adapter.getBasePath(), snapshot.path, this.settings.gitPath, signal, this.settings),
         {
           getValue: () => {
-            if (this.stopped || view.file?.path !== snapshot.path || view.getMode() !== 'source') throw new LocalizedError('文档或模式已切换，请重新选择要还原的区块。');
+            if (this.stopped || view.file?.path !== snapshot.path || view.getMode() !== 'source') throw new PluginError('The document or mode changed. Select the change again.');
             const current = editor.getValue();
-            if (normalizeText(current) !== normalizeText(view.getViewData())) throw new LocalizedError('编辑器尚未同步，请切换到编辑模式后重试。');
+            if (normalizeText(current) !== normalizeText(view.getViewData())) throw new PluginError('The editor is not synchronized. Switch to editing mode and try again.');
             return current;
           },
           apply: (edits) => editor.transaction({
@@ -360,7 +345,7 @@ export default class BetterMdDiff extends Plugin {
       // A distinct editor transaction preserves undo; Git's index is never touched.
       this.revertModal?.close();
       leaf.setEphemeralState({ line: Math.min(change.from, view.getViewData().split('\n').length - 1) });
-      new Notice(t('已还原此项。需要撤销时，在左侧编辑器按 Ctrl/Cmd+Z。'));
+      new Notice('Change restored. Press Ctrl/Cmd+Z in the source editor to undo.');
     } finally {
       if (!this.stopped) await this.refresh(snapshot.path, true);
     }
@@ -377,7 +362,6 @@ export default class BetterMdDiff extends Plugin {
     await this.saveData({ ...this.settings, changes: this.changesSettings });
     if (this.stopped) return;
     this.changesController?.requestRefresh();
-    this.syncLanguage();
     this.restartPolling();
     this.store.updatePresentation(this.settings.contextLines, this.settings);
     if (this.appliedReadSettings.gitPath !== this.settings.gitPath || this.appliedReadSettings.maxFileMiB !== this.settings.maxFileMiB || this.appliedReadSettings.maxLines !== this.settings.maxLines) {
