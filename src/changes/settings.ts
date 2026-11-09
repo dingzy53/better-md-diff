@@ -1,4 +1,19 @@
+import type { Setting } from 'obsidian';
 import type { ChangesSettings } from './types';
+
+type ChangesSettingRow = { name: string; desc: string } & ({ render: (setting: Setting) => void } | { render?: never });
+
+export interface ChangesSettingSection {
+  type: 'group';
+  heading: string;
+  items: ChangesSettingRow[];
+}
+
+/** Only the plugin members this section needs; keeps the module free of main.ts. */
+export interface ChangesSettingsHost {
+  changesSettings: ChangesSettings;
+  saveChangesSettings(): Promise<void>;
+}
 
 export const DEFAULT_CHANGES_SETTINGS: ChangesSettings = {
   showUntracked: true,
@@ -31,5 +46,57 @@ export function normalizeChangesSettings(value: unknown, defaults: ChangesSettin
     showStatusBar: typeof input.showStatusBar === 'boolean' ? input.showStatusBar : defaults.showStatusBar,
     collapsedFolders: stringList(input.collapsedFolders, defaults.collapsedFolders,
       (entry) => entry.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')),
+  };
+}
+
+/**
+ * The "Changes list" settings group. Uses the same definition shape as the
+ * upstream settings tab, which renders it in the 1.13+ search UI and in the
+ * legacy fallback.
+ */
+export function changesSettingGroup(plugin: ChangesSettingsHost): ChangesSettingSection {
+  return {
+    type: 'group',
+    heading: 'Changes list',
+    items: [
+      {
+        name: 'Show untracked files',
+        desc: "List new files Git doesn't track yet and diff them against an empty file.",
+        render: (setting) => {
+          setting.addToggle((toggle) => toggle.setValue(plugin.changesSettings.showUntracked).onChange(async (value) => {
+            plugin.changesSettings.showUntracked = value;
+            await plugin.saveChangesSettings();
+          }));
+        },
+      },
+      {
+        name: 'Exclude patterns',
+        desc: 'Paths to hide from the list. A trailing / hides a folder. Supports * and **. Lines starting with # are ignored.',
+        render: (setting) => {
+          setting.addTextArea((area) => {
+            area.setValue(plugin.changesSettings.excludePatterns.join('\n'));
+            area.setPlaceholder('Folder/');
+            const save = (): void => {
+              const patterns = area.getValue().split('\n').map((line) => line.trim()).filter(Boolean);
+              if (patterns.join('\n') === plugin.changesSettings.excludePatterns.join('\n')) return;
+              plugin.changesSettings.excludePatterns = patterns;
+              void plugin.saveChangesSettings();
+            };
+            area.inputEl.addEventListener('change', save);
+            area.inputEl.addEventListener('blur', save);
+          });
+        },
+      },
+      {
+        name: 'Show change count in status bar',
+        desc: 'Show the number of changed files beside the other status bar items.',
+        render: (setting) => {
+          setting.addToggle((toggle) => toggle.setValue(plugin.changesSettings.showStatusBar).onChange(async (value) => {
+            plugin.changesSettings.showStatusBar = value;
+            await plugin.saveChangesSettings();
+          }));
+        },
+      },
+    ],
   };
 }

@@ -33,6 +33,20 @@ class SliderControl extends InputControl {
   }
 }
 
+class TextAreaControl {
+  inputEl: HTMLTextAreaElement;
+  constructor(parent: HTMLElement) {
+    this.inputEl = parent.ownerDocument.createElement('textarea');
+    parent.append(this.inputEl);
+  }
+  setValue(value: string): this { this.inputEl.value = value; return this; }
+  getValue(): string { return this.inputEl.value; }
+  setPlaceholder(value: string): this { this.inputEl.placeholder = value; return this; }
+  onChange(callback: (value: string) => unknown): this {
+    this.inputEl.addEventListener('change', () => { callback(this.inputEl.value); }); return this;
+  }
+}
+
 export class ButtonControl {
   buttonEl: HTMLButtonElement;
   constructor(parent: HTMLElement) { this.buttonEl = parent.ownerDocument.createElement('button'); parent.append(this.buttonEl); }
@@ -59,5 +73,6 @@ export class Setting {
   addToggle(callback: (control: ToggleControl) => unknown): this { callback(new ToggleControl(this.settingEl, 'checkbox')); return this; }
   addSlider(callback: (control: SliderControl) => unknown): this { callback(new SliderControl(this.settingEl, 'range')); return this; }
   addText(callback: (control: InputControl) => unknown): this { callback(new InputControl(this.settingEl, 'text')); return this; }
+  addTextArea(callback: (control: TextAreaControl) => unknown): this { callback(new TextAreaControl(this.settingEl)); return this; }
   addButton(callback: (control: ButtonControl) => unknown): this { callback(new ButtonControl(this.settingEl)); return this; }
 }

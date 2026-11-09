@@ -2,6 +2,8 @@ import { PluginSettingTab, Setting, type App } from 'obsidian';
 import type BetterMdDiff from './main';
 import { DEFAULT_SETTINGS, SETTING_LIMITS } from './options';
 import { t, type MessageKey } from './i18n';
+// fork: changes list settings
+import { changesSettingGroup } from './changes/settings';
 
 type ToggleKey = 'showMarkers' | 'inlineHighlights' | 'showWhitespace' | 'followEditor' | 'followNavigation';
 type SettingRow = { name: string; desc: string } & ({ render: (setting: Setting) => void } | { render?: never });
@@ -60,6 +62,8 @@ export class DiffSettingTab extends PluginSettingTab {
         } },
         { name: t('还原安全说明'), desc: t('比较基准固定为 HEAD。Git 操作只读，不执行暂存或提交。只有确认“还原此项”后才修改编辑器；确认与过期检查不可关闭。') },
       ] },
+      // fork: one "Changes list" group, rendered by both settings code paths.
+      changesSettingGroup(this.plugin),
     ];
   }
 
