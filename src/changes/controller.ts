@@ -159,6 +159,13 @@ export class ChangesController extends Component {
     return this.reader.readHeadBlob(path);
   }
 
+  /** Whether the discard flow can act on this file through the Vault API. */
+  canDiscard(file: ChangedFile): boolean {
+    if (file.status === 'R' || file.status === '!') return false;
+    if (file.status === 'D') return true;
+    return this.host.app.vault.getFileByPath(file.path) !== null;
+  }
+
   saveSettings(): Promise<void> {
     return this.host.saveChangesSettings();
   }

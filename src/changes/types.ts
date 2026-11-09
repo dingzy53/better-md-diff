@@ -12,6 +12,8 @@ export interface ChangedFile {
   added: number;
   /** Deleted lines; always 0 for binary files. */
   deleted: number;
+  /** True when the index already differs from HEAD for this path. */
+  staged?: boolean;
 }
 
 export interface ChangeSet {

@@ -211,16 +211,17 @@ export class ChangesView extends ItemView {
 
   private showMenu(file: ChangedFile, event?: MouseEvent, position?: { x: number; y: number }): void {
     const menu = new Menu();
-    const blocked = file.status === 'R' || file.status === '!';
+    const allowed = this.host.controller.canDiscard(file);
+    const reason = file.status === 'R'
+      ? "Discard isn't available for renames. Use Git in a terminal."
+      : file.status === '!'
+        ? 'Resolve the conflict first.'
+        : 'Use Git in a terminal for this file.';
     menu.addItem((item) => {
-      item.setTitle('Discard all changes').setIcon('undo-2').setWarning(true).setDisabled(blocked);
-      if (!blocked) item.onClick(() => this.host.discard(file));
+      item.setTitle('Discard all changes').setIcon('undo-2').setWarning(true).setDisabled(!allowed);
+      if (allowed) item.onClick(() => this.host.discard(file));
     });
-    if (blocked) {
-      menu.addItem((item) => item.setIsLabel(true).setTitle(file.status === 'R'
-        ? "Discard isn't available for renames. Use Git in a terminal."
-        : 'Resolve the conflict first.'));
-    }
+    if (!allowed) menu.addItem((item) => item.setIsLabel(true).setTitle(reason));
     if (event) menu.showAtMouseEvent(event);
     else if (position) menu.showAtPosition(position);
   }

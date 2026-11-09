@@ -28,6 +28,7 @@ function makeView(state: ChangesState, options: { activePath?: string; settings?
     refreshNow: vi.fn(async () => {}),
     saveCollapsedFolders: vi.fn(async () => {}),
     changesSettings: () => settings,
+    canDiscard: (candidate: ChangedFile) => candidate.status !== 'R' && candidate.status !== '!',
   } as unknown as ChangesController;
   const open = vi.fn();
   const discard = vi.fn();

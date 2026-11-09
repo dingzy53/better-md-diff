@@ -96,6 +96,21 @@ describe('changed file merging', () => {
       .not.toContain('new.md');
   });
 
+  it('marks staged index changes separately from working-tree-only edits', () => {
+    const staged = toChangedFiles([
+      { kind: 'ordinary', xy: 'A.', path: 'staged.md' },
+      { kind: 'ordinary', xy: '.M', path: 'worktree.md' },
+      { kind: 'ordinary', xy: 'MM', path: 'both.md' },
+      { kind: 'untracked', xy: '??', path: 'new.md' },
+    ], new Map(), new Map([['new.md', { added: 1, binary: false }]]), () => false, true);
+    expect(staged.map((entry) => [entry.path, entry.staged])).toEqual([
+      ['both.md', true],
+      ['new.md', false],
+      ['staged.md', true],
+      ['worktree.md', false],
+    ]);
+  });
+
   it('counts an untracked file outside the vault index as zero lines', () => {
     const files = toChangedFiles([{ kind: 'untracked', xy: '??', path: 'hidden.md' }], new Map(), new Map(), () => false, true);
     expect(files[0]).toMatchObject({ status: 'U', added: 0, deleted: 0, binary: false });

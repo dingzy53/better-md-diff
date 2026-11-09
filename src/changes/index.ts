@@ -2,6 +2,7 @@ import { Notice, type Plugin } from 'obsidian';
 import type { DiffSettings } from '../options';
 import { ChangesController } from './controller';
 import { CHANGES_ICON, CHANGES_VIEW, ChangesView } from './changes-view';
+import { DiscardModal } from './discard';
 import { openChangedFile } from './open';
 import { PLAIN_DIFF_VIEW, PlainDiffView } from './plain-diff-view';
 import type { ChangedFile, ChangesSettings, ChangesState } from './types';
@@ -58,6 +59,14 @@ export function installChanges(plugin: Plugin, deps: ChangesDeps): ChangesContro
       .catch((error: unknown) => { new Notice(error instanceof Error ? error.message : 'Unable to open this file.'); });
   };
 
+  const discard = (file: ChangedFile): void => {
+    new DiscardModal(plugin.app, file, {
+      app: plugin.app,
+      headBlob: (path) => controller.headBlob(path),
+      refresh: () => controller.requestRefresh(),
+    }).open();
+  };
+
   const openSettings = (): void => {
     const host = plugin.app as typeof plugin.app & SettingsHost;
     host.setting?.open();
@@ -69,7 +78,7 @@ export function installChanges(plugin: Plugin, deps: ChangesDeps): ChangesContro
   plugin.registerView(CHANGES_VIEW, (leaf) => new ChangesView(leaf, {
     controller,
     open: openChanged,
-    discard: () => new Notice("Discard isn't available yet."),
+    discard,
     openSettings,
   }));
   plugin.registerView(PLAIN_DIFF_VIEW, (leaf) => new PlainDiffView(leaf, {
@@ -103,6 +112,16 @@ export function installChanges(plugin: Plugin, deps: ChangesDeps): ChangesContro
       },
     });
   }
+  plugin.addCommand({
+    id: 'discard-current-file',
+    name: 'Discard all changes in current file',
+    checkCallback: (checking) => {
+      const file = controller.find(controller.activePath());
+      if (!file || !controller.canDiscard(file)) return false;
+      if (!checking) discard(file);
+      return true;
+    },
+  });
 
   const status = plugin.addStatusBarItem();
   status.addClass('unc-status');

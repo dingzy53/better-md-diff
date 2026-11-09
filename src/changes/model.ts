@@ -126,6 +126,7 @@ export function toChangedFiles(
       binary: stats?.binary ?? false,
       added: stats?.added ?? 0,
       deleted: status === 'U' ? 0 : numstat.get(entry.path)?.deleted ?? 0,
+      staged: entry.kind !== 'untracked' && entry.xy[0] !== '.' && entry.xy[0] !== ' ',
     };
     if (status === 'R' && entry.oldPath) file.oldPath = entry.oldPath;
     files.push(file);

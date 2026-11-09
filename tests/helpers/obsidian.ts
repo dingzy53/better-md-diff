@@ -75,6 +75,22 @@ export class MarkdownView {
   file: { path: string } | null = null;
 }
 
+export class TFolder {
+  constructor(public path = '') {}
+  children: unknown[] = [];
+}
+
+export class Notice {
+  noticeEl = document.createElement('div');
+  constructor(public message: string) {}
+  setMessage(message: string): this { this.message = message; return this; }
+  hide(): void {}
+}
+
+export function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/^\/+|\/+$/g, '') || '/';
+}
+
 export class Component {
   private cleanupCallbacks: (() => void)[] = [];
   private children: Component[] = [];
