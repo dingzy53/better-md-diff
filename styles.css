@@ -138,9 +138,9 @@
 .unc-tree:focus { outline: none; }
 .unc-row .unc-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: var(--nav-item-white-space); }
 .unc-row:focus { outline: none; }
-.unc-file-tag { flex: 0 0 auto; margin-inline-start: var(--size-4-1); padding: 0 var(--size-4-1); border-radius: var(--nav-tag-radius); background-color: var(--nav-tag-background); color: var(--nav-tag-color); font-size: var(--font-ui-smaller); font-weight: var(--nav-tag-weight); line-height: var(--line-height-normal); }
-.tree-item-self:hover .unc-file-tag { color: var(--nav-tag-color-hover); }
-.tree-item-self.is-active .unc-file-tag { color: var(--nav-tag-color-active); }
+.unc-file-tag { flex: 0 0 auto; margin-inline-end: var(--size-4-2); padding: 0 var(--size-4-1); border-radius: var(--nav-tag-radius); background-color: var(--nav-tag-background); color: var(--nav-tag-color); font-size: 9px; font-weight: var(--nav-tag-weight); letter-spacing: 0.05em; line-height: var(--line-height-normal); text-transform: uppercase; }
+.tree-item-self:hover .unc-file-tag { flex: 0 0 auto; margin-inline-end: var(--size-4-2); padding: 0 var(--size-4-1); border-radius: var(--nav-tag-radius); background-color: var(--nav-tag-background); color: var(--nav-tag-color); font-size: 9px; font-weight: var(--nav-tag-weight); letter-spacing: 0.05em; line-height: var(--line-height-normal); text-transform: uppercase; }
+.tree-item-self.is-active .unc-file-tag { flex: 0 0 auto; margin-inline-end: var(--size-4-2); padding: 0 var(--size-4-1); border-radius: var(--nav-tag-radius); background-color: var(--nav-tag-background); color: var(--nav-tag-color); font-size: 9px; font-weight: var(--nav-tag-weight); letter-spacing: 0.05em; line-height: var(--line-height-normal); text-transform: uppercase; }
 .unc-deleted .unc-name { color: var(--text-faint); text-decoration: line-through; }
 .unc-status-a, .unc-status-u, .unc-badge-a, .unc-badge-u { --unc-flair-color: var(--unc-status-added); }
 .unc-status-m, .unc-badge-m { --unc-flair-color: var(--unc-status-modified); }

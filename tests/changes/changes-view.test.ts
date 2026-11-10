@@ -235,7 +235,8 @@ describe('changes view', () => {
     await view.onOpen();
     expect(row(view, 'café 🎉.md').querySelector('.tree-item-inner')?.textContent).toBe('café 🎉');
     expect(row(view, 'café 🎉.md').querySelector('.unc-file-tag')).toBeNull();
-    expect(row(view, 'photo.png').querySelector('.tree-item-inner')?.textContent).toBe('photo.png');
+    expect(row(view, 'photo.png').querySelector('.tree-item-inner')?.textContent).toBe('photo');
+    expect(row(view, 'photo.png').querySelector('.tree-item-flair-outer .unc-file-tag + .unc-flair')).not.toBeNull();
     expect(row(view, 'photo.png').querySelector('.unc-file-tag')?.textContent).toBe('png');
     expect(row(view, 'photo.png').dataset.tooltip).toBe('photo.png\nUntracked · binary');
   });
@@ -326,9 +327,10 @@ describe('display names', () => {
     ['notes/notes.v2.md', 'notes.v2', ''],
     ['README.MD', 'README', ''],
     ['.md', '.md', ''],
-    ['.obsidian/app.json', 'app.json', 'json'],
+    ['.obsidian/app.json', 'app', 'json'],
     ['Makefile', 'Makefile', ''],
-    ['photo.PNG', 'photo.PNG', 'png'],
+    ['photo.PNG', 'photo', 'png'],
+    ['archive.tar.gz', 'archive.tar', 'gz'],
     ['trailing.', 'trailing.', ''],
   ])('%s shows as %s with tag "%s"', (path, name, tag) => {
     expect(displayName(path)).toBe(name);

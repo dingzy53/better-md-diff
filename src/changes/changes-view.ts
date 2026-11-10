@@ -26,12 +26,11 @@ function fileName(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1);
 }
 
-/** File name as the file explorer shows it: Markdown files drop their extension. */
+/** File name as the file explorer shows it: without its extension, which non-Markdown files show as a tag. */
 export function displayName(path: string): string {
   const name = fileName(path);
   const dot = name.lastIndexOf('.');
-  if (dot <= 0) return name;
-  return name.slice(dot + 1).toLowerCase() === 'md' ? name.slice(0, dot) : name;
+  return dot <= 0 || dot === name.length - 1 ? name : name.slice(0, dot);
 }
 
 /** Lowercase extension shown as a tag beside non-Markdown files; empty for Markdown and extensionless files. */
@@ -286,11 +285,11 @@ export class ChangesView extends ItemView {
     row.setAttribute('aria-selected', String(active));
     row.setAttribute('tabindex', '-1');
     row.createDiv({ cls: 'tree-item-inner unc-name', text: displayName(file.path) });
-    const tag = extensionTag(file.path);
-    if (tag) row.createSpan({ cls: 'unc-file-tag', text: tag });
     const label = BADGE_LABEL[file.status];
-    const flair = row.createDiv({ cls: 'tree-item-flair-outer' })
-      .createSpan({ cls: `tree-item-flair unc-flair ${statusClass(file.status)}`, text: file.status });
+    const flairOuter = row.createDiv({ cls: 'tree-item-flair-outer' });
+    const tag = extensionTag(file.path);
+    if (tag) flairOuter.createSpan({ cls: 'unc-file-tag', text: tag });
+    const flair = flairOuter.createSpan({ cls: `tree-item-flair unc-flair ${statusClass(file.status)}`, text: file.status });
     flair.setAttribute('aria-label', label);
     setTooltip(row, fileTooltip(file), { placement: 'right' });
     row.addEventListener('click', () => this.host.open(file));
