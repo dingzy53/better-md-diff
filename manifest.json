@@ -1,7 +1,7 @@
 {
   "id": "uncommitted",
   "name": "Uncommitted",
-  "version": "0.6.0",
+  "version": "0.5.2",
   "minAppVersion": "1.8.0",
   "description": "List every file that differs from the last commit, with status letters and a simple diff.",
   "author": "Ding Zheng Yuan",
