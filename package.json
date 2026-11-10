@@ -1,8 +1,8 @@
 {
   "name": "uncommitted",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
-  "description": "List every file that differs from the last commit, with status badges and a simple diff.",
+  "description": "List every file that differs from the last commit, with status letters and a simple diff.",
   "license": "MIT",
   "author": "Ding Zheng Yuan",
   "homepage": "https://github.com/dingzy53/better-md-diff",
