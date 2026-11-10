@@ -113,6 +113,8 @@ describe('installChanges wiring', () => {
     });
 
     expect(status.classList.contains('unc-status')).toBe(true);
+    expect(status.classList.contains('mod-clickable')).toBe(true);
+    expect(status.dataset.tooltip).toBe('Open changes list');
     expect(status.getAttribute('role')).toBe('button');
     expect(status.getAttribute('tabindex')).toBe('0');
     expect(status.textContent).toBe('Git: loading');

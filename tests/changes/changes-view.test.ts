@@ -147,7 +147,7 @@ describe('changes view', () => {
     expect(missing.openSettings).toHaveBeenCalledTimes(1);
   });
 
-  it('offers discard for modified files and explains why renames and conflicts are blocked', async () => {
+  it('groups the file menu like core panes and explains why renames and conflicts are blocked', async () => {
     const modified = changed('note.md', 'M');
     const setup = makeView({ status: 'ready', set: readySet([modified, changed('renamed.md', 'R', { oldPath: 'old.md' }), changed('conflict.md', '!')]) });
     view = setup.view;
@@ -155,18 +155,44 @@ describe('changes view', () => {
 
     row(view, 'note.md').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     let menu = Menu.instances.at(-1)!;
-    expect(menu.items[0]).toMatchObject({ title: 'Discard all changes', disabled: false, warning: true, icon: 'undo-2' });
+    expect(menu.items.map((item) => [item.section, item.title])).toEqual([
+      ['open', 'Show changes'],
+      ['action', 'Copy vault location'],
+      ['danger', 'Discard all changes'],
+    ]);
+    expect(menu.items[2]).toMatchObject({ disabled: false, warning: true, icon: 'undo-2' });
+    expect(row(view, 'note.md').classList.contains('has-active-menu')).toBe(true);
+    menu.hideCallback?.();
+    expect(row(view, 'note.md').classList.contains('has-active-menu')).toBe(false);
     menu.items[0]!.callback?.();
+    expect(setup.open).toHaveBeenCalledWith(modified);
+    menu.items[2]!.callback?.();
     expect(setup.discard).toHaveBeenCalledWith(modified);
 
     row(view, 'renamed.md').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     menu = Menu.instances.at(-1)!;
-    expect(menu.items[0]).toMatchObject({ title: 'Discard all changes', disabled: true });
-    expect(menu.items[1]).toMatchObject({ isLabel: true, title: "Discard isn't available for renames. Use Git in a terminal." });
+    expect(menu.items[2]).toMatchObject({ title: 'Discard all changes', disabled: true });
+    expect(menu.items[3]).toMatchObject({ isLabel: true, title: "Discard isn't available for renames. Use Git in a terminal." });
 
     row(view, 'conflict.md').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     menu = Menu.instances.at(-1)!;
-    expect(menu.items[1]).toMatchObject({ isLabel: true, title: 'Resolve the conflict first.' });
+    expect(menu.items[3]).toMatchObject({ isLabel: true, title: 'Resolve the conflict first.' });
+  });
+
+  it('copies the vault location and toggles folders from the folder menu', async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const setup = makeView({ status: 'ready', set: readySet([changed('café 🎉/b.md', 'M')]) });
+    view = setup.view;
+    await view.onOpen();
+
+    row(view, 'café 🎉').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    const menu = Menu.instances.at(-1)!;
+    expect(menu.items.map((item) => item.title)).toEqual(['Collapse', 'Copy vault location']);
+    menu.items[1]!.callback?.();
+    expect(writeText).toHaveBeenCalledWith('café 🎉');
+    menu.items[0]!.callback?.();
+    expect(row(view, 'café 🎉/b.md')).toBeNull();
   });
 
   it('re-renders from controller updates and restores a collapsed folder from settings', async () => {

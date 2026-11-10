@@ -151,7 +151,6 @@
 .unc-badge { flex: 0 0 auto; color: var(--unc-flair-color, var(--text-muted)); font-family: var(--font-monospace); font-size: var(--font-ui-smaller); font-weight: var(--font-semibold); }
 .unc-state { white-space: normal; }
 .unc-error-message { color: var(--text-error); overflow-wrap: anywhere; }
-.unc-status { cursor: pointer; }
 .unc-status:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .unc-status-hidden { display: none; }
 .unc-plain-diff { display: flex; flex-direction: column; height: 100%; padding: 0; }

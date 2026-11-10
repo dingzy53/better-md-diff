@@ -1,4 +1,4 @@
-import { Notice, type Plugin } from 'obsidian';
+import { Notice, setTooltip, type Plugin } from 'obsidian';
 import type { DiffSettings } from '../options';
 import { ChangesController } from './controller';
 import { CHANGES_ICON, CHANGES_VIEW, ChangesView } from './changes-view';
@@ -124,7 +124,7 @@ export function installChanges(plugin: Plugin, deps: ChangesDeps): ChangesContro
   });
 
   const status = plugin.addStatusBarItem();
-  status.addClass('unc-status');
+  status.addClass('mod-clickable', 'unc-status');
   status.setAttribute('role', 'button');
   status.setAttribute('tabindex', '0');
   const updateStatus = (): void => {
@@ -133,7 +133,7 @@ export function installChanges(plugin: Plugin, deps: ChangesDeps): ChangesContro
     const text = statusText(state);
     status.setText(text);
     status.setAttribute('aria-label', `${text}. Open changes list.`);
-    status.title = state.status === 'error' ? state.message : 'Open changes list';
+    setTooltip(status, state.status === 'error' ? state.message : 'Open changes list', { placement: 'top' });
   };
   plugin.registerDomEvent(status, 'click', () => { void openList(); });
   plugin.registerDomEvent(status, 'keydown', (event) => {

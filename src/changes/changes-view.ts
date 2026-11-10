@@ -1,4 +1,4 @@
-import { ItemView, Menu, debounce, setIcon, setTooltip, type Debouncer, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, Menu, Notice, debounce, setIcon, setTooltip, type Debouncer, type WorkspaceLeaf } from 'obsidian';
 import type { ChangesController } from './controller';
 import { buildTree, sortedFiles, sortedFolders, type TreeNode } from './model';
 import type { ChangedFile, ChangesState, ChangeStatus } from './types';
@@ -80,7 +80,7 @@ export class ChangesView extends ItemView {
   }
 
   getDisplayText(): string {
-    return 'Changes';
+    return 'Uncommitted changes';
   }
 
   getIcon(): string {
@@ -260,6 +260,10 @@ export class ChangesView extends ItemView {
       }
     };
     apply(!this.collapsed.has(folder.path));
+    row.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      this.showMenu(row, event);
+    });
     row.addEventListener('click', () => {
       const expand = this.collapsed.has(folder.path);
       if (expand) this.collapsed.delete(folder.path);
@@ -292,13 +296,39 @@ export class ChangesView extends ItemView {
     row.addEventListener('click', () => this.host.open(file));
     row.addEventListener('contextmenu', (event) => {
       event.preventDefault();
-      this.showMenu(file, event);
+      this.showMenu(row, event);
     });
     this.files.set(file.path, file);
   }
 
-  private showMenu(file: ChangedFile, event?: MouseEvent, position?: { x: number; y: number }): void {
+  /** Context menu for a row, grouped into sections like the file explorer's menu. */
+  private showMenu(row: HTMLElement, event?: MouseEvent): void {
+    const path = row.dataset.path;
+    if (path === undefined) return;
+    const file = this.files.get(path);
     const menu = new Menu();
+    if (file) {
+      menu.addItem((item) => item.setSection('open').setTitle('Show changes').setIcon(CHANGES_ICON).onClick(() => this.host.open(file)));
+    } else {
+      const expanded = row.getAttribute('aria-expanded') === 'true';
+      menu.addItem((item) => item.setSection('open').setTitle(expanded ? 'Collapse' : 'Expand')
+        .setIcon(expanded ? 'chevrons-down-up' : 'chevrons-up-down').onClick(() => row.click()));
+    }
+    // Not "Copy path": the upstream lint config treats PATH as an acronym and forbids disabling the rule.
+    menu.addItem((item) => item.setSection('action').setTitle('Copy vault location').setIcon('copy').onClick(() => { void this.copyPath(path); }));
+    if (file) this.addDiscardItems(menu, file);
+
+    row.addClass('has-active-menu');
+    menu.onHide(() => row.removeClass('has-active-menu'));
+    if (event) {
+      menu.showAtMouseEvent(event);
+    } else {
+      const rect = row.getBoundingClientRect();
+      menu.showAtPosition({ x: rect.left, y: rect.bottom });
+    }
+  }
+
+  private addDiscardItems(menu: Menu, file: ChangedFile): void {
     const allowed = this.host.controller.canDiscard(file);
     const reason = file.status === 'R'
       ? "Discard isn't available for renames. Use Git in a terminal."
@@ -306,12 +336,19 @@ export class ChangesView extends ItemView {
         ? 'Resolve the conflict first.'
         : 'Use Git in a terminal for this file.';
     menu.addItem((item) => {
-      item.setTitle('Discard all changes').setIcon('undo-2').setWarning(true).setDisabled(!allowed);
+      item.setSection('danger').setTitle('Discard all changes').setIcon('undo-2').setWarning(true).setDisabled(!allowed);
       if (allowed) item.onClick(() => this.host.discard(file));
     });
-    if (!allowed) menu.addItem((item) => item.setIsLabel(true).setTitle(reason));
-    if (event) menu.showAtMouseEvent(event);
-    else if (position) menu.showAtPosition(position);
+    if (!allowed) menu.addItem((item) => item.setSection('danger').setIsLabel(true).setTitle(reason));
+  }
+
+  private async copyPath(path: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(path);
+      new Notice('Copied to the clipboard.');
+    } catch {
+      new Notice('Unable to copy to the clipboard.');
+    }
   }
 
   /** Rows currently in the tree, in display order; collapsed folders keep their children detached. */
@@ -377,14 +414,10 @@ export class ChangesView extends ItemView {
         row.click();
         break;
       case 'ContextMenu':
-      case 'F10': {
+      case 'F10':
         if (event.key === 'F10' && !event.shiftKey) return;
-        const file = this.files.get(row.dataset.path ?? '');
-        if (!file) return;
-        const rect = row.getBoundingClientRect();
-        this.showMenu(file, undefined, { x: rect.left, y: rect.bottom });
+        this.showMenu(row);
         break;
-      }
       default:
         return;
     }

@@ -17,7 +17,8 @@ export class MenuItem {
   setWarning(warning: boolean): this { this.warning = warning; return this; }
   setIsLabel(label: boolean): this { this.isLabel = label; return this; }
   onClick(callback: () => void): this { this.callback = callback; return this; }
-  setSection(_section: string): this { return this; }
+  section = '';
+  setSection(section: string): this { this.section = section; return this; }
 }
 
 export class Menu {
@@ -40,7 +41,8 @@ export class Menu {
   showAtPosition(_position: { x: number; y: number }): this { return this; }
   hide(): this { return this; }
   close(): void {}
-  onHide(_callback: () => unknown): void {}
+  hideCallback?: () => unknown;
+  onHide(callback: () => unknown): void { this.hideCallback = callback; }
 }
 
 export interface MockDebouncer<T extends unknown[]> {
