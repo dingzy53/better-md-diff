@@ -2,16 +2,16 @@
   "name": "uncommitted",
   "version": "0.5.1",
   "private": true,
-  "description": "List every file that differs from the last commit, with status letters and a simple diff.",
+  "description": "List every file that differs from the last Git commit, with status letters and a simple diff.",
   "license": "MIT",
   "author": "Ding Zheng Yuan",
-  "homepage": "https://github.com/dingzy53/better-md-diff",
+  "homepage": "https://github.com/dingzy53/obsidian-uncommited",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dingzy53/better-md-diff.git"
+    "url": "git+https://github.com/dingzy53/obsidian-uncommited.git"
   },
   "bugs": {
-    "url": "https://github.com/dingzy53/better-md-diff/issues"
+    "url": "https://github.com/dingzy53/obsidian-uncommited/issues"
   },
   "engines": {
     "node": "^22.12.0 || >=24.0.0"

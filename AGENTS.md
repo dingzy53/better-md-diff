@@ -2,15 +2,15 @@
 
 ## What this repo is
 
-Uncommitted is a personal fork that adds a left-sidebar list of files changed since `HEAD`.
+Uncommitted is a fork of Better MD Diff that adds a left-sidebar list of files changed since `HEAD`.
 The upstream diff panel, editor flags, and per-change restore remain in place.
-The plugin is released from this repository and is not submitted to the community directory.
+The plugin is released from this repository. The owner submits it to the Obsidian community directory.
 
 ## Hard rules
 
 - Never push to, open issues or pull requests against, or comment on the upstream repository.
   The `upstream` remote is fetch-only; its push URL stays `DISABLED`.
-- Never submit this plugin to the Obsidian community directory or `obsidianmd/obsidian-releases`.
+- Only the owner submits or manages the plugin at community.obsidian.md. Never do it for them, and never open pull requests against `obsidianmd/obsidian-releases`.
 - Push to `origin`, tags, and GitHub releases only when the owner asks in this session.
 - Never add network requests, telemetry, or analytics.
 - Never install a build into the owner's real vault. Use an isolated test vault.
@@ -44,6 +44,10 @@ Unicode coverage is still expected: use Latin text with accents and emoji in tes
   - `tests/helpers/obsidian.ts` and `tests/helpers/obsidian-setting.ts`: host-boundary stubs for the new tests.
 - To sync: `git fetch upstream && git merge upstream/main`, resolve only these touch points, then `npm ci && npm run check`.
 
+## Settings tab
+
+Keep it compact: dropdowns of presets instead of sliders, a description only when the name is not enough, and no rows without a control.
+
 ## Obsidian rules
 
 Use `this.app`, never the global `app`.
@@ -61,7 +65,10 @@ Keep `isDesktopOnly: true` and `minAppVersion: 1.8.0`.
 ## Releasing
 
 - Use a tag that exactly matches `manifest.json`, without a `v` prefix.
-- `.github/workflows/release.yml` builds and publishes `main.js`, `manifest.json`, and `styles.css`.
+- `.github/workflows/release.yml` builds, attests, and publishes `main.js`, `manifest.json`, and `styles.css`.
+- The community directory reads `manifest.json` at the head of `main` and installs from the release whose tag matches its version.
+  Keep `main` and the latest release on the same version.
+- Follow Obsidian's developer policies: disclose network use, outside-vault access, accounts, and payment in the README, and keep the credit to the original author.
 - Push the workflow before the first tag so the tag can trigger it.
 - Keep the release assets unchanged after the workflow publishes them.
 

@@ -3,7 +3,7 @@
   "name": "Uncommitted",
   "version": "0.5.1",
   "minAppVersion": "1.8.0",
-  "description": "List every file that differs from the last commit, with status letters and a simple diff.",
+  "description": "List every file that differs from the last Git commit, with status letters and a simple diff.",
   "author": "Ding Zheng Yuan",
   "authorUrl": "https://github.com/dingzy53",
   "isDesktopOnly": true

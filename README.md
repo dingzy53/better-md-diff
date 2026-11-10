@@ -1,18 +1,18 @@
 # Uncommitted
 
-[![Release](https://img.shields.io/github/v/release/dingzy53/better-md-diff?display_name=tag)](https://github.com/dingzy53/better-md-diff/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/dingzy53/better-md-diff/total)](https://github.com/dingzy53/better-md-diff/releases)
+[![Release](https://img.shields.io/github/v/release/dingzy53/obsidian-uncommited?display_name=tag)](https://github.com/dingzy53/obsidian-uncommited/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/dingzy53/obsidian-uncommited/total)](https://github.com/dingzy53/obsidian-uncommited/releases)
 [![Obsidian 1.8.0+](https://img.shields.io/badge/Obsidian-1.8.0%2B-7C3AED?logo=obsidian&logoColor=white)](https://obsidian.md)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Desktop only](https://img.shields.io/badge/platform-desktop-lightgrey)](#requirements)
 
-A personal fork of [Better MD Diff](https://github.com/kamacheng/better-md-diff) that lists every file changed since the last commit.
+See every file in your vault that differs from the last Git commit, and review each change before you commit. Built on [Better MD Diff](https://github.com/kamacheng/better-md-diff) by kamacheng.
 
 <img src="docs/images/obsidian-demo.gif" alt="Edit a note, inspect a deletion, restore one change, and undo" width="560">
 
 <img src="docs/images/changes-list.png" alt="The changes list in the left sidebar beside a note and its diff panel" width="720">
 
-The **changes list** on the left is this fork's addition: every file that differs from `HEAD`, styled like the core file explorer.
+The **changes list** on the left shows every file that differs from `HEAD`, styled like the core file explorer.
 
 ## Features
 
@@ -26,7 +26,7 @@ The **changes list** on the left is this fork's addition: every file that differ
 - **Discard:** return a file to `HEAD`, recreate a deleted file, or move an untracked file to the trash.
 - **Read-only Git:** the plugin never stages, commits, or pushes.
 
-The diff panel, editor flags, and per-change restore are upstream behavior. The changes list, status letters, and plain diff view are this fork's additions.
+The diff panel, editor flags, and per-change restore come from Better MD Diff. The changes list, status letters, and plain diff view are added here.
 
 ## Requirements
 
@@ -36,17 +36,21 @@ The diff panel, editor flags, and per-change restore are upstream behavior. The 
 
 ## Installation
 
-This fork is not published to the Obsidian community directory. Install a release manually:
+### From the community directory
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/dingzy53/better-md-diff/releases/latest).
+Once the plugin is listed, open **Settings → Community plugins → Browse**, search for **Uncommitted**, then select **Install** and **Enable**.
+
+### Manually
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/dingzy53/obsidian-uncommited/releases/latest).
 2. Create `<vault>/.obsidian/plugins/uncommitted/` and put the three files there.
 3. In Obsidian, disable **Better MD Diff** if it is enabled, then enable **Uncommitted** under **Settings → Community plugins**.
 
 ### From source
 
 ```bash
-git clone git@github.com:dingzy53/better-md-diff.git
-cd better-md-diff
+git clone https://github.com/dingzy53/obsidian-uncommited.git
+cd obsidian-uncommited
 npm ci
 npm run build
 OBSIDIAN_VAULT=/path/to/your/vault npm run install:vault
@@ -54,7 +58,7 @@ OBSIDIAN_VAULT=/path/to/your/vault npm run install:vault
 
 The install script stops if Better MD Diff is enabled.
 
-> **Never enable both plugins.** Uncommitted keeps upstream's internal view type (`better-md-diff-view`) so the fork stays easy to merge, so Obsidian treats both plugins as registering the same view.
+> **Never enable both plugins.** Uncommitted keeps Better MD Diff's internal view type (`better-md-diff-view`), so Obsidian treats both plugins as registering the same view.
 
 To keep the installed plugin out of your vault's Git history, add `.obsidian/plugins/uncommitted/` to the vault's `.gitignore`.
 
@@ -90,10 +94,21 @@ All commands are palette-only, with no default hotkeys:
 - **Go to next change** / **Go to previous change**
 - **Toggle editor diff markers**
 
+### Settings
+
+The settings tab has four short groups:
+
+- **Appearance:** editor markers, diff font size, context lines, changed-text highlights, and changed whitespace.
+- **Navigation:** whether the diff panel follows the editor, and the editor follows the panel.
+- **Advanced:** refresh delay, Git polling interval, document size and line limits, and the Git executable.
+- **Changes list:** untracked files, exclude patterns, and the status bar count.
+
 ## Privacy and security
 
+- **Accounts and payment:** none. The plugin is free and needs no account.
+
 - **Network use:** none. The plugin makes no requests and collects no telemetry.
-- **Files outside the vault:** none. The plugin reads vault files, Git metadata, and its own `data.json`.
+- **Files outside the vault:** none. The plugin reads vault files, the vault's Git metadata, and its own `data.json`. The vault folder must be the repository root, so Git never reads above it.
 - **`child_process`:** the plugin runs the local Git executable through `execFile` with `shell: false` and a read-only command set.
 - **`fs`:** used only to resolve real paths before reading a Git baseline.
 - **Clipboard:** the plugin never reads or writes the system clipboard. It only filters the text of a copy selection inside the diff panel.
@@ -104,8 +119,8 @@ All commands are palette-only, with no default hotkeys:
 - **Desktop only.** The plugin needs a local Git executable and a filesystem vault.
 - **Repository root.** A vault inside a larger repository is rejected with an explanatory message.
 - **No Git writes.** Staging, commits, pulls, and pushes are left to a terminal.
-- **Not in the community directory.** Install from [GitHub releases](https://github.com/dingzy53/better-md-diff/releases).
-- **Upstream review is not wired in.** The accepted-baseline review modules and GitLab comparison remain unused.
+- **Not alongside Better MD Diff.** Both plugins register the same view, so enable only one.
+- **No review workflow.** Better MD Diff's accepted-baseline review modules and GitLab comparison are not wired in.
 
 ## Development
 
@@ -132,11 +147,11 @@ New code lives in `src/changes/` and `tests/changes/`. Do not reformat or reorde
 
 ### Releasing
 
-Use a tag that exactly matches `manifest.json`, without a `v` prefix. Pushing the tag runs [release.yml](.github/workflows/release.yml), which publishes `main.js`, `manifest.json`, and `styles.css` on the GitHub release.
+Use a tag that exactly matches `manifest.json`, without a `v` prefix. Pushing the tag runs [release.yml](.github/workflows/release.yml), which attests and publishes `main.js`, `manifest.json`, and `styles.css` on the GitHub release. The community directory reads `manifest.json` from the default branch and installs from the release with the matching tag.
 
 ## Credits
 
-Original project and author: [kamacheng/better-md-diff](https://github.com/kamacheng/better-md-diff) by kamacheng, used under the MIT license.
+Uncommitted is a fork of [kamacheng/better-md-diff](https://github.com/kamacheng/better-md-diff). kamacheng wrote the diff panel, editor markers, and per-change restore, used here under the MIT license.
 
 The demo uses the opening of Jane Austen's *Pride and Prejudice* (1813), public domain in the USA: [Project Gutenberg](https://www.gutenberg.org/ebooks/1342).
 

@@ -1,6 +1,6 @@
 # Contributing
 
-This is a personal fork. Small fixes and regression tests are welcome, but the owner decides scope.
+Uncommitted is a fork of [Better MD Diff](https://github.com/kamacheng/better-md-diff). Small fixes and regression tests are welcome, but the owner decides scope.
 
 Do not include real notes, tokens, personal paths, or vault data in issues, tests, or recordings.
 
@@ -47,8 +47,10 @@ They create an isolated vault under `.test-vault/` and never attach to or modify
 4. Tag the commit with the exact version, without a `v` prefix, and push the tag:
 
    ```bash
-   git tag -a 0.5.0 -m "0.5.0"
-   git push origin 0.5.0
+   git tag -a 0.5.2 -m "0.5.2"
+   git push origin 0.5.2
    ```
 
-The tag starts `.github/workflows/release.yml`. It builds the plugin and publishes `main.js`, `manifest.json`, and `styles.css` on the GitHub release.
+The tag starts `.github/workflows/release.yml`. It builds the plugin, attests the build provenance, and publishes `main.js`, `manifest.json`, and `styles.css` on the GitHub release.
+
+The Obsidian community directory reads `manifest.json` from the default branch and downloads the assets from the release with the matching tag, so push the branch before the tag. Only the first version is submitted at [community.obsidian.md](https://community.obsidian.md); later releases are picked up automatically.
