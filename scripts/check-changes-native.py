@@ -135,8 +135,14 @@ def measure(page, selector, hover):
     page.mouse.move(0, 0)
     page.wait_for_timeout(150)
     if hover:
-        page.hover(selector)
-        page.wait_for_timeout(150)
+        # A hover can be lost while the sidebar re-lays out after a tab switch; retry until :hover applies.
+        for _ in range(5):
+            page.hover(selector)
+            page.wait_for_timeout(150)
+            if page.evaluate('(selector) => document.querySelector(selector)?.matches(":hover")', selector):
+                break
+        else:
+            raise RuntimeError(f'Could not hover {selector}')
     return page.evaluate(MEASURE, [selector, PROPS])
 
 
