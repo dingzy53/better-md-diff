@@ -109,7 +109,7 @@ export class PlainDiffView extends ItemView {
     this.contentEl.empty();
     this.contentEl.addClass('unc-plain-diff');
     if (!path) {
-      this.contentEl.createDiv({ cls: 'unc-state', text: 'No file selected' });
+      this.contentEl.createDiv({ cls: 'pane-empty unc-state', text: 'No file selected' });
       return;
     }
     const file = state.status === 'ready' ? state.set.files.find((candidate) => candidate.path === path) : undefined;
@@ -117,15 +117,15 @@ export class PlainDiffView extends ItemView {
     const body = this.contentEl.createDiv({ cls: 'unc-plain-body' });
 
     if (state.status === 'loading') {
-      body.createDiv({ cls: 'unc-state', text: 'Loading changes…' });
+      body.createDiv({ cls: 'pane-empty unc-state', text: 'Loading changes…' });
       return;
     }
     if (state.status === 'error') {
-      body.createDiv({ cls: 'unc-state unc-error-message', text: state.message });
+      body.createDiv({ cls: 'pane-empty unc-state unc-error-message', text: state.message });
       return;
     }
     if (!file) {
-      body.createDiv({ cls: 'unc-state unc-empty', text: 'No longer changed' });
+      body.createDiv({ cls: 'pane-empty unc-state unc-empty', text: 'No longer changed' });
       return;
     }
     try {
@@ -133,7 +133,7 @@ export class PlainDiffView extends ItemView {
       else await this.renderText(file, body, revision);
     } catch (error) {
       if (revision !== this.revision) return;
-      body.createDiv({ cls: 'unc-state unc-error-message', text: error instanceof Error ? error.message : 'Unable to read this file.' });
+      body.createDiv({ cls: 'pane-empty unc-state unc-error-message', text: error instanceof Error ? error.message : 'Unable to read this file.' });
     }
   }
 
@@ -171,7 +171,7 @@ export class PlainDiffView extends ItemView {
         after = await this.host.app.vault.cachedRead(target);
       } catch {
         if (revision !== this.revision) return;
-        body.createDiv({ cls: 'unc-state unc-error-message', text: 'Unable to read the current file.' });
+        body.createDiv({ cls: 'pane-empty unc-state unc-error-message', text: 'Unable to read the current file.' });
         return;
       }
       if (revision !== this.revision) return;
@@ -202,6 +202,6 @@ export class PlainDiffView extends ItemView {
   private renderTooLarge(body: HTMLElement, headSize: number, currentSize: number, message?: string): void {
     body.createDiv({ cls: 'unc-plain-notice', text: 'File is too large to diff' });
     body.createDiv({ cls: 'unc-plain-sizes', text: `HEAD ${formatBytes(headSize)} → current ${formatBytes(currentSize)}` });
-    if (message) body.createDiv({ cls: 'unc-state unc-error-message', text: message });
+    if (message) body.createDiv({ cls: 'pane-empty unc-state unc-error-message', text: message });
   }
 }

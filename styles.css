@@ -120,35 +120,37 @@
 .bmd-panel button:focus-visible, .bmd-guide-close:focus-visible, .bmd-status:focus-visible, button.bmd-gutter-marker:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 
 /* ==== fork: changes list ==== */
+/* The changes list reuses Obsidian's generic tree classes; these rules only add what core panes lack. */
+.unc-changes, .unc-plain-diff {
+  --unc-status-added: var(--text-success);
+  --unc-status-modified: var(--text-accent);
+  --unc-status-deleted: var(--text-error);
+  --unc-status-renamed: var(--text-muted);
+  --unc-status-conflict: var(--text-warning);
+}
 .unc-changes { display: flex; flex-direction: column; height: 100%; padding: 0; }
-.unc-header { display: flex; align-items: center; gap: var(--size-4-2); padding: var(--size-4-2) var(--size-4-3); border-bottom: 1px solid var(--background-modifier-border); }
-.unc-summary { flex: 1; min-width: 0; color: var(--text-muted); font-size: var(--font-ui-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.unc-actions { display: flex; align-items: center; gap: var(--size-2-1); }
-.unc-icon-button { color: var(--text-muted); }
-.unc-icon-button:hover:not(:disabled) { color: var(--text-normal); background: var(--background-modifier-hover); }
-.unc-icon-button:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 1px; }
-.unc-icon-button:disabled { opacity: 0.4; cursor: default; }
-.unc-body { flex: 1; min-height: 0; display: flex; }
-.unc-tree { flex: 1; min-height: 0; overflow-y: auto; padding: var(--size-4-2); }
-.unc-row { width: 100%; display: flex; align-items: center; gap: var(--size-4-2); padding: var(--size-2-1) var(--size-4-2); border: none; border-radius: var(--radius-s); background: transparent; color: var(--text-normal); font-size: var(--font-ui-small); text-align: left; cursor: pointer; }
-.unc-row:hover { background: var(--background-modifier-hover); }
-.unc-row:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
-.unc-file.is-active .unc-row { background: var(--background-modifier-hover); box-shadow: inset 2px 0 var(--interactive-accent); }
-.unc-folder-row { color: var(--text-muted); font-weight: var(--font-medium); }
-.unc-chevron { display: flex; align-items: center; justify-content: center; width: var(--size-4-3); height: var(--size-4-3); flex: 0 0 auto; }
-.unc-chevron .svg-icon { width: var(--icon-xs); height: var(--icon-xs); }
-.unc-folder-count { margin-left: auto; color: var(--text-faint); font-size: var(--font-ui-smaller); font-variant-numeric: tabular-nums; }
-.unc-children { padding-left: var(--size-4-3); }
-.unc-badge { flex: 0 0 auto; width: 1.15em; padding: 0 0.1em; border-radius: var(--radius-s); background: var(--background-modifier-border); color: var(--text-muted); font-size: var(--font-ui-smaller); font-weight: var(--font-bold); line-height: 1.5; text-align: center; }
-.unc-badge-a, .unc-badge-u { color: var(--color-green); }
-.unc-badge-m { color: var(--color-yellow); }
-.unc-badge-d { color: var(--color-red); }
-.unc-badge-r { color: var(--color-blue); }
-.unc-badge-conflict { color: var(--color-orange); }
-.unc-state { padding: var(--size-4-3) var(--size-4-2); color: var(--text-muted); font-size: var(--font-ui-small); }
-.unc-empty { text-align: center; }
-.unc-error-message { color: var(--text-error); }
-.unc-settings-button { margin-top: var(--size-4-2); }
+.unc-summary { display: flex; align-items: baseline; gap: var(--size-4-2); padding: 0 var(--size-4-3) var(--size-4-2); border-bottom: var(--border-width) solid var(--background-modifier-border); color: var(--text-muted); font-size: var(--font-ui-smaller); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.unc-summary-hidden { display: none; }
+.unc-summary-count { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.unc-summary-added { color: var(--text-success); }
+.unc-summary-deleted { color: var(--text-error); }
+.unc-tree { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: var(--size-4-1) var(--size-4-3) var(--size-4-6); scroll-padding-block: var(--size-4-2); }
+.unc-tree:focus { outline: none; }
+.unc-row .unc-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: var(--nav-item-white-space); }
+.unc-row:focus { outline: none; }
+.unc-file-tag { flex: 0 0 auto; margin-inline-start: var(--size-4-1); padding: 0 var(--size-4-1); border-radius: var(--nav-tag-radius); background-color: var(--nav-tag-background); color: var(--nav-tag-color); font-size: var(--font-ui-smaller); font-weight: var(--nav-tag-weight); line-height: var(--line-height-normal); }
+.tree-item-self:hover .unc-file-tag { color: var(--nav-tag-color-hover); }
+.tree-item-self.is-active .unc-file-tag { color: var(--nav-tag-color-active); }
+.unc-deleted .unc-name { color: var(--text-faint); text-decoration: line-through; }
+.unc-status-a, .unc-status-u, .unc-badge-a, .unc-badge-u { --unc-flair-color: var(--unc-status-added); }
+.unc-status-m, .unc-badge-m { --unc-flair-color: var(--unc-status-modified); }
+.unc-status-d, .unc-badge-d { --unc-flair-color: var(--unc-status-deleted); }
+.unc-status-r, .unc-badge-r { --unc-flair-color: var(--unc-status-renamed); }
+.unc-status-conflict, .unc-badge-conflict { --unc-flair-color: var(--unc-status-conflict); }
+.unc-changes .tree-item-flair.unc-flair { min-width: 1ch; color: var(--unc-flair-color); font-family: var(--font-monospace); font-weight: var(--font-semibold); text-align: center; }
+.unc-badge { flex: 0 0 auto; color: var(--unc-flair-color, var(--text-muted)); font-family: var(--font-monospace); font-size: var(--font-ui-smaller); font-weight: var(--font-semibold); }
+.unc-state { white-space: normal; }
+.unc-error-message { color: var(--text-error); overflow-wrap: anywhere; }
 .unc-status { cursor: pointer; }
 .unc-status:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .unc-status-hidden { display: none; }
