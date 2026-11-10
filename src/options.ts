@@ -26,6 +26,14 @@ export const SETTING_LIMITS = {
   fontSize: [10, 22, 1], contextLines: [0, 10, 1], editDelayMs: [100, 2000, 50], gitPollSeconds: [2, 60, 1],
 } as const;
 
+// Dropdown presets. A stored value outside a list is still offered, so nothing is lost on upgrade.
+const range = (min: number, max: number): number[] => Array.from({ length: max - min + 1 }, (_, index) => min + index);
+export const SETTING_CHOICES: Record<keyof typeof SETTING_LIMITS, readonly number[]> = {
+  fontSize: range(10, 22), contextLines: range(0, 10),
+  editDelayMs: [100, 200, 350, 500, 1000, 2000], gitPollSeconds: [2, 5, 10, 30, 60],
+  maxFileMiB: [1, 2, 5, 10, 20], maxLines: [1000, 5000, 10_000, 20_000, 50_000, 100_000, 200_000],
+};
+
 export function normalizeSettings(value: unknown): DiffSettings {
   const input = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   const result = { ...DEFAULT_SETTINGS };

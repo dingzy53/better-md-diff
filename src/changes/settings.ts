@@ -1,7 +1,7 @@
 import type { Setting } from 'obsidian';
 import type { ChangesSettings } from './types';
 
-type ChangesSettingRow = { name: string; desc: string } & ({ render: (setting: Setting) => void } | { render?: never });
+type ChangesSettingRow = { name: string; desc?: string } & ({ render: (setting: Setting) => void } | { render?: never });
 
 export interface ChangesSettingSection {
   type: 'group';
@@ -61,7 +61,6 @@ export function changesSettingGroup(plugin: ChangesSettingsHost): ChangesSetting
     items: [
       {
         name: 'Show untracked files',
-        desc: "List new files Git doesn't track yet and diff them against an empty file.",
         render: (setting) => {
           setting.addToggle((toggle) => toggle.setValue(plugin.changesSettings.showUntracked).onChange(async (value) => {
             plugin.changesSettings.showUntracked = value;
@@ -71,7 +70,7 @@ export function changesSettingGroup(plugin: ChangesSettingsHost): ChangesSetting
       },
       {
         name: 'Exclude patterns',
-        desc: 'Paths to hide from the list. A trailing / hides a folder. Supports * and **. Lines starting with # are ignored.',
+        desc: 'One path per line. A trailing / hides a folder; * and ** are wildcards.',
         render: (setting) => {
           setting.addTextArea((area) => {
             area.setValue(plugin.changesSettings.excludePatterns.join('\n'));
@@ -89,7 +88,6 @@ export function changesSettingGroup(plugin: ChangesSettingsHost): ChangesSetting
       },
       {
         name: 'Show change count in status bar',
-        desc: 'Show the number of changed files beside the other status bar items.',
         render: (setting) => {
           setting.addToggle((toggle) => toggle.setValue(plugin.changesSettings.showStatusBar).onChange(async (value) => {
             plugin.changesSettings.showStatusBar = value;

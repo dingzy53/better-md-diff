@@ -19,7 +19,7 @@ function render(changes = {}) {
   };
   const container = document.createElement('div');
   for (const item of changesSettingGroup(plugin).items) {
-    const setting = new Setting(container).setName(item.name).setDesc(item.desc);
+    const setting = new Setting(container).setName(item.name).setDesc(item.desc ?? '');
     item.render?.(setting as unknown as ObsidianSetting);
   }
   return { plugin, container };

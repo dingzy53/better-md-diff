@@ -47,6 +47,21 @@ class TextAreaControl {
   }
 }
 
+class DropdownControl {
+  selectEl: HTMLSelectElement;
+  constructor(parent: HTMLElement) { this.selectEl = parent.ownerDocument.createElement('select'); parent.append(this.selectEl); }
+  addOption(value: string, display: string): this {
+    const option = this.selectEl.ownerDocument.createElement('option');
+    option.value = value; option.textContent = display; this.selectEl.append(option);
+    return this;
+  }
+  setValue(value: string): this { this.selectEl.value = value; return this; }
+  getValue(): string { return this.selectEl.value; }
+  onChange(callback: (value: string) => unknown): this {
+    this.selectEl.addEventListener('change', () => { callback(this.selectEl.value); }); return this;
+  }
+}
+
 export class ButtonControl {
   buttonEl: HTMLButtonElement;
   constructor(parent: HTMLElement) { this.buttonEl = parent.ownerDocument.createElement('button'); parent.append(this.buttonEl); }
@@ -72,6 +87,7 @@ export class Setting {
   setHeading(): this { this.settingEl.classList.add('setting-heading'); return this; }
   addToggle(callback: (control: ToggleControl) => unknown): this { callback(new ToggleControl(this.settingEl, 'checkbox')); return this; }
   addSlider(callback: (control: SliderControl) => unknown): this { callback(new SliderControl(this.settingEl, 'range')); return this; }
+  addDropdown(callback: (control: DropdownControl) => unknown): this { callback(new DropdownControl(this.settingEl)); return this; }
   addText(callback: (control: InputControl) => unknown): this { callback(new InputControl(this.settingEl, 'text')); return this; }
   addTextArea(callback: (control: TextAreaControl) => unknown): this { callback(new TextAreaControl(this.settingEl)); return this; }
   addButton(callback: (control: ButtonControl) => unknown): this { callback(new ButtonControl(this.settingEl)); return this; }
