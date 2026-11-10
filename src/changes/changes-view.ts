@@ -60,11 +60,14 @@ function fileTooltip(file: ChangedFile): string {
 /** Left-sidebar folder tree of every file that differs from HEAD, built from Obsidian's own tree markup. */
 export class ChangesView extends ItemView {
   private readonly collapsed = new Set<string>();
+  private readonly files = new Map<string, ChangedFile>();
   private collapsedInitialized = false;
   private readonly saveCollapsed: Debouncer<[], void>;
   private collapseButton?: HTMLElement;
   private summaryEl?: HTMLElement;
   private treeEl?: HTMLElement;
+  /** Path of the row that holds the tree's single tab stop. */
+  private focusPath?: string;
   private unsubscribe?: () => void;
 
   constructor(leaf: WorkspaceLeaf, private readonly host: ChangesViewHost) {
@@ -113,6 +116,17 @@ export class ChangesView extends ItemView {
     this.treeEl = this.contentEl.createDiv({ cls: 'unc-tree' });
     this.treeEl.setAttribute('role', 'tree');
     this.treeEl.setAttribute('aria-label', 'Changed files');
+    this.treeEl.addEventListener('keydown', (event) => this.onTreeKeydown(event));
+    this.treeEl.addEventListener('focusin', (event) => {
+      const row = this.rowFromEvent(event);
+      if (row) this.setRovingRow(row, false);
+    });
+    this.treeEl.addEventListener('focusout', (event) => {
+      const next = event.relatedTarget;
+      if (!(next instanceof Node) || !this.treeEl?.contains(next)) {
+        for (const row of this.visibleRows()) row.removeClass('has-focus');
+      }
+    });
   }
 
   private navButton(container: HTMLElement, icon: string, label: string): HTMLElement {
@@ -133,15 +147,17 @@ export class ChangesView extends ItemView {
     const state = this.host.controller.getState();
     const scrollTop = tree.scrollTop;
     const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusedPath = active && tree.contains(active) ? active.dataset.path : undefined;
+    const hadFocus = active !== null && tree.contains(active);
 
     this.renderSummary(state);
     this.updateCollapseButton(state);
     tree.empty();
+    this.files.clear();
     this.renderBody(state, tree);
     tree.scrollTop = scrollTop;
 
-    if (focusedPath !== undefined) this.rowFor(focusedPath)?.focus();
+    const row = this.syncRovingRow();
+    if (hadFocus) row?.focus();
   }
 
   private renderSummary(state: ChangesState): void {
@@ -251,6 +267,7 @@ export class ChangesView extends ItemView {
       this.saveCollapsed();
       apply(expand);
       this.updateCollapseButton(this.host.controller.getState());
+      this.syncRovingRow();
     });
   }
 
@@ -277,13 +294,7 @@ export class ChangesView extends ItemView {
       event.preventDefault();
       this.showMenu(file, event);
     });
-    row.addEventListener('keydown', (event) => {
-      if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
-        event.preventDefault();
-        const rect = row.getBoundingClientRect();
-        this.showMenu(file, undefined, { x: rect.left, y: rect.bottom });
-      }
-    });
+    this.files.set(file.path, file);
   }
 
   private showMenu(file: ChangedFile, event?: MouseEvent, position?: { x: number; y: number }): void {
@@ -303,9 +314,81 @@ export class ChangesView extends ItemView {
     else if (position) menu.showAtPosition(position);
   }
 
-  private rowFor(path: string): HTMLElement | undefined {
-    return Array.from(this.treeEl?.querySelectorAll<HTMLElement>('.tree-item-self[data-path]') ?? [])
-      .find((element) => element.dataset.path === path);
+  /** Rows currently in the tree, in display order; collapsed folders keep their children detached. */
+  private visibleRows(): HTMLElement[] {
+    return Array.from(this.treeEl?.querySelectorAll<HTMLElement>('.tree-item-self[data-path]') ?? []);
+  }
+
+  private rowFromEvent(event: Event): HTMLElement | null {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return null;
+    const row = target.closest<HTMLElement>('.tree-item-self[data-path]');
+    return row && this.treeEl?.contains(row) ? row : null;
+  }
+
+  /** Give exactly one row the tab stop: the remembered row, else the active file, else the first row. */
+  private syncRovingRow(): HTMLElement | undefined {
+    const rows = this.visibleRows();
+    const activePath = this.host.controller.activePath();
+    const row = rows.find((element) => element.dataset.path === this.focusPath)
+      ?? rows.find((element) => element.dataset.path === activePath)
+      ?? rows[0];
+    for (const element of rows) element.setAttribute('tabindex', element === row ? '0' : '-1');
+    this.focusPath = row?.dataset.path;
+    return row;
+  }
+
+  private setRovingRow(row: HTMLElement, focus: boolean): void {
+    for (const element of this.visibleRows()) {
+      element.setAttribute('tabindex', element === row ? '0' : '-1');
+      element.toggleClass('has-focus', element === row);
+    }
+    this.focusPath = row.dataset.path;
+    if (focus) row.focus();
+  }
+
+  private onTreeKeydown(event: KeyboardEvent): void {
+    const row = this.rowFromEvent(event);
+    if (!row) return;
+    const rows = this.visibleRows();
+    const index = rows.indexOf(row);
+    const isFolder = row.classList.contains('mod-collapsible');
+    const expanded = row.getAttribute('aria-expanded') === 'true';
+    const move = (target: HTMLElement | null | undefined): void => {
+      if (target) this.setRovingRow(target, true);
+    };
+
+    switch (event.key) {
+      case 'ArrowDown': move(rows[index + 1]); break;
+      case 'ArrowUp': move(rows[index - 1]); break;
+      case 'Home': move(rows[0]); break;
+      case 'End': move(rows[rows.length - 1]); break;
+      case 'ArrowRight':
+        if (!isFolder) return;
+        if (expanded) move(row.parentElement?.querySelector<HTMLElement>(':scope > .tree-item-children > .tree-item > .tree-item-self'));
+        else row.click();
+        break;
+      case 'ArrowLeft':
+        if (isFolder && expanded) row.click();
+        else move(row.parentElement?.parentElement?.closest<HTMLElement>('.unc-folder')?.querySelector<HTMLElement>(':scope > .tree-item-self'));
+        break;
+      case 'Enter':
+      case ' ':
+        row.click();
+        break;
+      case 'ContextMenu':
+      case 'F10': {
+        if (event.key === 'F10' && !event.shiftKey) return;
+        const file = this.files.get(row.dataset.path ?? '');
+        if (!file) return;
+        const rect = row.getBoundingClientRect();
+        this.showMenu(file, undefined, { x: rect.left, y: rect.bottom });
+        break;
+      }
+      default:
+        return;
+    }
+    event.preventDefault();
   }
 
   private initializeCollapsed(): void {

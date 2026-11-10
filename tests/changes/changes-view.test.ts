@@ -47,6 +47,11 @@ function row(view: ChangesView, path: string): HTMLElement {
   return view.contentEl.querySelector<HTMLElement>(`.tree-item-self[data-path="${path}"]`)!;
 }
 
+function press(key: string, init: KeyboardEventInit = {}): void {
+  const target = document.activeElement ?? document.body;
+  target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
+}
+
 let view: ChangesView | undefined;
 beforeEach(() => { Menu.instances = []; });
 afterEach(() => { view?.unload(); view = undefined; document.body.replaceChildren(); vi.useRealTimers(); });
@@ -207,6 +212,85 @@ describe('changes view', () => {
     expect(row(view, 'photo.png').querySelector('.tree-item-inner')?.textContent).toBe('photo.png');
     expect(row(view, 'photo.png').querySelector('.unc-file-tag')?.textContent).toBe('png');
     expect(row(view, 'photo.png').dataset.tooltip).toBe('photo.png\nUntracked · binary');
+  });
+
+  it('moves a single tab stop through the tree with the arrow, Home and End keys', async () => {
+    const setup = makeView({ status: 'ready', set: readySet([changed('a/b.md', 'M'), changed('a/c.md', 'A'), changed('root.md', 'M')]) });
+    view = setup.view;
+    await view.onOpen();
+    const tabStops = (): string[] => Array.from(view!.contentEl.querySelectorAll<HTMLElement>('[tabindex="0"][data-path]')).map((el) => el.dataset.path!);
+    expect(tabStops()).toEqual(['a']);
+
+    row(view, 'a').focus();
+    press('ArrowDown');
+    expect(document.activeElement).toBe(row(view, 'a/b.md'));
+    expect(row(view, 'a/b.md').classList.contains('has-focus')).toBe(true);
+    expect(row(view, 'a').classList.contains('has-focus')).toBe(false);
+    expect(tabStops()).toEqual(['a/b.md']);
+    press('End');
+    expect(document.activeElement).toBe(row(view, 'root.md'));
+    press('ArrowUp');
+    expect(document.activeElement).toBe(row(view, 'a/c.md'));
+    press('Home');
+    expect(document.activeElement).toBe(row(view, 'a'));
+    press('ArrowUp');
+    expect(document.activeElement).toBe(row(view, 'a'));
+  });
+
+  it('expands, collapses and walks folders with the left and right keys', async () => {
+    const setup = makeView({ status: 'ready', set: readySet([changed('a/b/c.md', 'M')]) });
+    view = setup.view;
+    await view.onOpen();
+    row(view, 'a/b/c.md').focus();
+    press('ArrowLeft');
+    expect(document.activeElement).toBe(row(view, 'a/b'));
+    press('ArrowLeft');
+    expect(row(view, 'a/b').getAttribute('aria-expanded')).toBe('false');
+    expect(row(view, 'a/b/c.md')).toBeNull();
+    expect(document.activeElement).toBe(row(view, 'a/b'));
+    press('ArrowLeft');
+    expect(document.activeElement).toBe(row(view, 'a'));
+    press('ArrowDown');
+    press('ArrowRight');
+    expect(row(view, 'a/b').getAttribute('aria-expanded')).toBe('true');
+    press('ArrowRight');
+    expect(document.activeElement).toBe(row(view, 'a/b/c.md'));
+    press('ArrowRight');
+    expect(document.activeElement).toBe(row(view, 'a/b/c.md'));
+  });
+
+  it('opens files and toggles folders with Enter and Space, and opens the menu from the keyboard', async () => {
+    const setup = makeView({ status: 'ready', set: readySet([changed('a/b.md', 'M'), changed('root.md', 'M')]) });
+    view = setup.view;
+    await view.onOpen();
+    row(view, 'root.md').focus();
+    press('Enter');
+    expect(setup.open).toHaveBeenCalledWith(expect.objectContaining({ path: 'root.md' }));
+    row(view, 'a').focus();
+    press(' ');
+    expect(row(view, 'a/b.md')).toBeNull();
+    row(view, 'root.md').focus();
+    press('F10', { shiftKey: true });
+    expect(Menu.instances).toHaveLength(1);
+    press('ContextMenu');
+    expect(Menu.instances).toHaveLength(2);
+  });
+
+  it('keeps keyboard focus across refreshes and falls back when the focused file disappears', async () => {
+    const setup = makeView({ status: 'ready', set: readySet([changed('a.md', 'M'), changed('b.md', 'M'), changed('c.md', 'M')]) }, { activePath: 'c.md' });
+    view = setup.view;
+    await view.onOpen();
+    expect(row(view, 'c.md').getAttribute('tabindex')).toBe('0');
+    row(view, 'b.md').focus();
+
+    setup.emit({ status: 'ready', set: readySet([changed('a.md', 'M'), changed('b.md', 'M'), changed('c.md', 'M'), changed('d.md', 'A')]) });
+    expect(document.activeElement).toBe(row(view, 'b.md'));
+    expect(row(view, 'b.md').getAttribute('tabindex')).toBe('0');
+
+    setup.emit({ status: 'ready', set: readySet([changed('a.md', 'M'), changed('c.md', 'M')]) });
+    expect(document.activeElement).toBe(row(view, 'c.md'));
+    expect(row(view, 'c.md').getAttribute('tabindex')).toBe('0');
+    expect(row(view, 'a.md').getAttribute('tabindex')).toBe('-1');
   });
 });
 
