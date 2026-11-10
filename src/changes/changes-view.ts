@@ -145,7 +145,8 @@ export class ChangesView extends ItemView {
     if (!tree) return;
     const state = this.host.controller.getState();
     const scrollTop = tree.scrollTop;
-    const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // The view can live in a popout window, so read focus from the tree's own document.
+    const active = tree.ownerDocument.activeElement;
     const hadFocus = active !== null && tree.contains(active);
 
     this.renderSummary(state);
