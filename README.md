@@ -12,9 +12,9 @@ A personal fork of [Better MD Diff](https://github.com/kamacheng/better-md-diff)
 
 ## Features
 
-- **Changes list** in the left sidebar: a folder tree of every file that differs from `HEAD`.
-- **Status badges:** `A` added, `M` modified, `D` deleted, `R` renamed, `U` untracked, `!` conflict.
-- **One summary:** `N changes · +added −deleted` for the whole working tree.
+- **Changes list** in the left sidebar: a folder tree of every file that differs from `HEAD`, styled and navigated like the core file explorer.
+- **Status letters:** `A` added, `M` modified, `D` deleted, `R` renamed, `U` untracked, `!` conflict.
+- **One summary:** `N changes +added −deleted` for the whole working tree.
 - **Automatic refresh** on vault changes, window focus, or the refresh command. No timer polling.
 - **Filters:** hide the config folder by default and add exclude patterns in settings.
 - **Markdown diff:** open a changed note in the existing Better MD Diff panel, with per-change restore.
@@ -22,7 +22,7 @@ A personal fork of [Better MD Diff](https://github.com/kamacheng/better-md-diff)
 - **Discard:** return a file to `HEAD`, recreate a deleted file, or move an untracked file to the trash.
 - **Read-only Git:** the plugin never stages, commits, or pushes.
 
-The diff panel, editor flags, and per-change restore are upstream behavior. The changes list, badges, and plain diff view are this fork's additions.
+The diff panel, editor flags, and per-change restore are upstream behavior. The changes list, status letters, and plain diff view are this fork's additions.
 
 ## Requirements
 
@@ -56,7 +56,11 @@ To keep the installed plugin out of your vault's Git history, add `.obsidian/plu
 
 ## Usage
 
-Open the list with the **Git compare** ribbon icon, the **Open changes list** command, or the status bar item. It sits in the left sidebar next to the file explorer.
+Open the list with the **Git compare** ribbon icon, the **Open changes list** command, or the status bar item. It sits in the left sidebar next to the file explorer and uses the same tree styling, so it follows your theme.
+
+Each row shows the file name without its extension, as the file explorer does. Non-Markdown files show their extension as a tag. A letter on the right gives the status: **A** added, **M** modified, **D** deleted (name struck through), **R** renamed, **U** untracked, **!** conflict. Folders show how many changed files they contain. Hover a row for its full path and line counts. The line under the toolbar sums up the whole list.
+
+The list works from the keyboard: **Tab** moves into the tree, **↑**/**↓**, **Home** and **End** move between rows, **→** expands a folder or enters it, **←** collapses it or moves to its parent, and **Enter** or **Space** opens a file or toggles a folder. **Shift+F10** or the menu key opens the context menu.
 
 Clicking a file:
 
@@ -67,7 +71,7 @@ Clicking a file:
 | Other text file | Opens only the plain-text diff |
 | Deleted file | Plain diff only; binary files show their old and new sizes |
 
-Right-click a row to **Discard all changes**. The dialog names the file and the exact effect. Modified files return to `HEAD` in one editor transaction, so **Ctrl/Cmd+Z** undoes it, and staged changes stay staged. Deleted files are recreated. Added and untracked files go to Obsidian's trash. Renames and conflicts cannot be discarded here.
+Right-click a row for **Show changes**, **Copy vault location**, and **Discard all changes**. The dialog names the file and the exact effect. Modified files return to `HEAD` in one editor transaction, so **Ctrl/Cmd+Z** undoes it, and staged changes stay staged. Deleted files are recreated. Added and untracked files go to Obsidian's trash. Renames and conflicts cannot be discarded here.
 
 All commands are palette-only, with no default hotkeys:
 
@@ -108,6 +112,15 @@ npm run dev
 ```
 
 `npm run check` runs ESLint with zero warnings, the test suite, strict TypeScript checking, the production build, and release validation. Tests use temporary Git repositories and a mocked Obsidian boundary.
+
+To check the changes list against Obsidian's own tree styling, build first, then run the host check with Python Playwright and an Obsidian executable:
+
+```bash
+npm run build
+python3 scripts/check-changes-native.py --executable /path/to/obsidian
+```
+
+It creates a throwaway vault and profile under `.test-vault/`, compares the computed row metrics with the core file explorer in the light and dark themes, and saves screenshots next to its report. It never opens your own vault.
 
 New code lives in `src/changes/` and `tests/changes/`. Do not reformat or reorder upstream code; see [AGENTS.md](AGENTS.md) for the merge rules.
 

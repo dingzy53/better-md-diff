@@ -29,6 +29,8 @@ Unicode coverage is still expected: use Latin text with accents and emoji in tes
 - New CSS goes in the delimited block at the end of `styles.css`.
 - `src/errors.ts` holds the single error type. Do not reintroduce an i18n module.
 - `src/main.ts` is the only integration point for the changes list.
+- The changes list builds Obsidian's generic tree markup (`tree-item`, `tree-item-self`, `collapse-icon`, `tree-item-flair`, `nav-header`, `pane-empty`).
+  Never use the file explorer's `nav-file*` or `nav-folder*` classes; themes, other plugins, and `scripts/host-smoke.py` target them.
 
 ## Keep the fork mergeable
 
