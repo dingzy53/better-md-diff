@@ -26,16 +26,45 @@ function fileName(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1);
 }
 
+/** File name as the file explorer shows it: Markdown files drop their extension. */
+export function displayName(path: string): string {
+  const name = fileName(path);
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0) return name;
+  return name.slice(dot + 1).toLowerCase() === 'md' ? name.slice(0, dot) : name;
+}
+
+/** Lowercase extension shown as a tag beside non-Markdown files; empty for Markdown and extensionless files. */
+export function extensionTag(path: string): string {
+  const name = fileName(path);
+  const dot = name.lastIndexOf('.');
+  if (dot <= 0 || dot === name.length - 1) return '';
+  const extension = name.slice(dot + 1).toLowerCase();
+  return extension === 'md' ? '' : extension;
+}
+
+export function statusClass(status: ChangeStatus): string {
+  return `unc-status-${status === '!' ? 'conflict' : status.toLowerCase()}`;
+}
+
 function countText(count: number): string {
   return `${count} change${count === 1 ? '' : 's'}`;
 }
 
-/** Left-sidebar folder tree of every file that differs from HEAD. */
+function fileTooltip(file: ChangedFile): string {
+  const path = file.oldPath ? `${file.oldPath} → ${file.path}` : file.path;
+  const detail = file.binary ? 'binary' : `+${file.added} −${file.deleted}`;
+  return `${path}\n${BADGE_LABEL[file.status]} · ${detail}`;
+}
+
+/** Left-sidebar folder tree of every file that differs from HEAD, built from Obsidian's own tree markup. */
 export class ChangesView extends ItemView {
   private readonly collapsed = new Set<string>();
   private collapsedInitialized = false;
   private readonly saveCollapsed: Debouncer<[], void>;
-  private scrollEl?: HTMLElement;
+  private collapseButton?: HTMLElement;
+  private summaryEl?: HTMLElement;
+  private treeEl?: HTMLElement;
   private unsubscribe?: () => void;
 
   constructor(leaf: WorkspaceLeaf, private readonly host: ChangesViewHost) {
@@ -58,6 +87,7 @@ export class ChangesView extends ItemView {
   async onOpen(): Promise<void> {
     this.contentEl.empty();
     this.contentEl.addClass('unc-changes');
+    this.buildSkeleton();
     this.unsubscribe = this.host.controller.subscribe(() => this.render());
     this.register(() => this.unsubscribe?.());
     this.register(() => this.saveCollapsed.cancel());
@@ -71,78 +101,107 @@ export class ChangesView extends ItemView {
     this.saveCollapsed.cancel();
   }
 
-  private render(): void {
-    const state = this.host.controller.getState();
-    const scrollTop = this.scrollEl?.scrollTop ?? 0;
-    const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusedPath = active && this.contentEl.contains(active) ? active.dataset.path : undefined;
+  private buildSkeleton(): void {
+    const header = this.contentEl.createDiv({ cls: 'nav-header' });
+    const buttons = header.createDiv({ cls: 'nav-buttons-container' });
+    const refresh = this.navButton(buttons, 'refresh-cw', 'Refresh changes');
+    refresh.addEventListener('click', () => { void this.host.controller.refreshNow(); });
+    this.collapseButton = this.navButton(buttons, 'chevrons-down-up', 'Collapse all folders');
+    this.collapseButton.addEventListener('click', () => this.toggleAllFolders());
 
-    this.contentEl.empty();
-    this.renderHeader(state);
-    const body = this.contentEl.createDiv({ cls: 'unc-body' });
-    body.setAttribute('role', 'tree');
-    body.setAttribute('aria-label', 'Changed files');
-    this.scrollEl = body.createDiv({ cls: 'unc-tree' });
-    this.renderBody(state, this.scrollEl);
-    this.scrollEl.scrollTop = scrollTop;
-
-    if (focusedPath) {
-      const row = Array.from(this.contentEl.querySelectorAll<HTMLElement>('button[data-path]')).find((element) => element.dataset.path === focusedPath);
-      row?.focus();
-    }
+    this.summaryEl = this.contentEl.createDiv({ cls: 'unc-summary' });
+    this.treeEl = this.contentEl.createDiv({ cls: 'unc-tree' });
+    this.treeEl.setAttribute('role', 'tree');
+    this.treeEl.setAttribute('aria-label', 'Changed files');
   }
 
-  private renderHeader(state: ChangesState): void {
-    const header = this.contentEl.createDiv({ cls: 'unc-header' });
-    const summary = header.createDiv({ cls: 'unc-summary' });
-    summary.setText(this.summaryText(state));
+  private navButton(container: HTMLElement, icon: string, label: string): HTMLElement {
+    const button = container.createDiv({ cls: 'clickable-icon nav-action-button', attr: { role: 'button', tabindex: '0', 'aria-label': label } });
+    setIcon(button, icon);
+    button.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        button.click();
+      }
+    });
+    return button;
+  }
 
-    const actions = header.createDiv({ cls: 'unc-actions' });
-    const refresh = actions.createEl('button', { cls: 'clickable-icon unc-icon-button', attr: { type: 'button', 'aria-label': 'Refresh changes' } });
-    setIcon(refresh, 'refresh-cw');
-    setTooltip(refresh, 'Refresh changes');
-    refresh.addEventListener('click', () => { void this.host.controller.refreshNow(); });
+  private render(): void {
+    const tree = this.treeEl;
+    if (!tree) return;
+    const state = this.host.controller.getState();
+    const scrollTop = tree.scrollTop;
+    const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusedPath = active && tree.contains(active) ? active.dataset.path : undefined;
 
+    this.renderSummary(state);
+    this.updateCollapseButton(state);
+    tree.empty();
+    this.renderBody(state, tree);
+    tree.scrollTop = scrollTop;
+
+    if (focusedPath !== undefined) this.rowFor(focusedPath)?.focus();
+  }
+
+  private renderSummary(state: ChangesState): void {
+    const summary = this.summaryEl!;
+    summary.empty();
+    if (state.status !== 'ready' || !state.set.files.length) {
+      summary.addClass('unc-summary-hidden');
+      return;
+    }
+    summary.removeClass('unc-summary-hidden');
+    const { files, added, deleted } = state.set;
+    summary.setAttribute('aria-label', `${countText(files.length)}, ${added} line${added === 1 ? '' : 's'} added, ${deleted} deleted`);
+    summary.createSpan({ cls: 'unc-summary-count', text: countText(files.length) });
+    summary.createSpan({ cls: 'unc-summary-added', text: `+${added}` });
+    summary.createSpan({ cls: 'unc-summary-deleted', text: `−${deleted}` });
+  }
+
+  private updateCollapseButton(state: ChangesState): void {
+    const button = this.collapseButton!;
     const folders = state.status === 'ready' ? this.folderPaths(buildTree(state.set.files)) : [];
     const allCollapsed = folders.length > 0 && folders.every((path) => this.collapsed.has(path));
-    const collapse = actions.createEl('button', {
-      cls: 'clickable-icon unc-icon-button',
-      attr: { type: 'button', 'aria-label': allCollapsed ? 'Expand all folders' : 'Collapse all folders' },
-    });
-    setIcon(collapse, 'chevrons-down-up');
-    setTooltip(collapse, allCollapsed ? 'Expand all folders' : 'Collapse all folders');
-    collapse.disabled = folders.length === 0;
-    collapse.addEventListener('click', () => {
-      if (allCollapsed) for (const path of folders) this.collapsed.delete(path);
-      else for (const path of folders) this.collapsed.add(path);
-      this.saveCollapsed();
-      this.render();
-    });
+    const label = allCollapsed ? 'Expand all folders' : 'Collapse all folders';
+    setIcon(button, allCollapsed ? 'chevrons-up-down' : 'chevrons-down-up');
+    button.setAttribute('aria-label', label);
+    setTooltip(button, label);
+    const disabled = folders.length === 0;
+    button.toggleClass('is-disabled', disabled);
+    button.setAttribute('aria-disabled', String(disabled));
+    button.setAttribute('tabindex', disabled ? '-1' : '0');
   }
 
-  private summaryText(state: ChangesState): string {
-    if (state.status === 'loading') return 'Loading changes…';
-    if (state.status === 'error') return 'Git error';
-    if (!state.set.files.length) return 'No changes since last commit';
-    return `${countText(state.set.files.length)} · +${state.set.added} −${state.set.deleted}`;
+  private toggleAllFolders(): void {
+    const state = this.host.controller.getState();
+    if (state.status !== 'ready') return;
+    const folders = this.folderPaths(buildTree(state.set.files));
+    if (!folders.length) return;
+    const allCollapsed = folders.every((path) => this.collapsed.has(path));
+    if (allCollapsed) for (const path of folders) this.collapsed.delete(path);
+    else for (const path of folders) this.collapsed.add(path);
+    this.saveCollapsed();
+    this.render();
   }
 
   private renderBody(state: ChangesState, container: HTMLElement): void {
     if (state.status === 'loading') {
-      container.createDiv({ cls: 'unc-state', text: 'Loading changes…' });
+      container.createDiv({ cls: 'pane-empty unc-state', text: 'Loading changes…' });
       return;
     }
     if (state.status === 'error') {
-      const error = container.createDiv({ cls: 'unc-state unc-error' });
+      const error = container.createDiv({ cls: 'pane-empty unc-state unc-error' });
       error.createDiv({ cls: 'unc-error-message', text: state.message });
       if (state.kind === 'git-missing') {
-        const button = error.createEl('button', { cls: 'mod-cta unc-settings-button', text: 'Open settings' });
+        const actions = error.createDiv({ cls: 'pane-empty-actions' });
+        const button = actions.createEl('button', { cls: 'mod-cta unc-settings-button', text: 'Open settings' });
         button.addEventListener('click', () => this.host.openSettings());
       }
       return;
     }
     if (!state.set.files.length) {
-      container.createDiv({ cls: 'unc-state unc-empty', text: 'No changes since last commit' });
+      container.createDiv({ cls: 'pane-empty unc-state unc-empty', text: 'No changes since last commit' });
       return;
     }
     this.initializeCollapsed();
@@ -157,45 +216,62 @@ export class ChangesView extends ItemView {
   }
 
   private renderFolder(folder: TreeNode, container: HTMLElement, level: number): void {
-    const expanded = !this.collapsed.has(folder.path);
-    const item = container.createDiv({ cls: 'tree-item nav-folder unc-folder' });
+    const item = container.createDiv({ cls: 'tree-item unc-folder' });
     item.dataset.path = folder.path;
-    const row = item.createEl('button', {
-      cls: 'tree-item-self unc-row unc-folder-row',
-      attr: { type: 'button', role: 'treeitem', 'aria-expanded': String(expanded), 'aria-level': String(level) },
-    });
+    const row = item.createDiv({ cls: 'tree-item-self is-clickable mod-collapsible unc-row' });
     row.dataset.path = folder.path;
-    const chevron = row.createSpan({ cls: 'tree-item-icon unc-chevron' });
-    setIcon(chevron, expanded ? 'chevron-down' : 'chevron-right');
-    row.createSpan({ cls: 'tree-item-inner', text: folder.name });
-    row.createSpan({ cls: 'unc-folder-count', text: String(folder.count) });
-    setTooltip(row, folder.path);
+    row.setAttribute('role', 'treeitem');
+    row.setAttribute('aria-level', String(level));
+    row.setAttribute('tabindex', '-1');
+    const icon = row.createDiv({ cls: 'tree-item-icon collapse-icon' });
+    setIcon(icon, 'right-triangle');
+    row.createDiv({ cls: 'tree-item-inner unc-name', text: folder.name });
+    row.createDiv({ cls: 'tree-item-flair-outer' }).createSpan({ cls: 'tree-item-flair', text: String(folder.count) });
+    setTooltip(row, folder.path, { placement: 'right' });
+
+    // Like the file explorer, a collapsed folder keeps its children element detached and empty.
+    const children = item.createDiv({ cls: 'tree-item-children', attr: { role: 'group' } });
+    const apply = (expanded: boolean): void => {
+      item.toggleClass('is-collapsed', !expanded);
+      icon.toggleClass('is-collapsed', !expanded);
+      row.setAttribute('aria-expanded', String(expanded));
+      children.empty();
+      if (expanded) {
+        this.renderNode(folder, children, level + 1);
+        item.appendChild(children);
+      } else {
+        children.remove();
+      }
+    };
+    apply(!this.collapsed.has(folder.path));
     row.addEventListener('click', () => {
-      if (expanded) this.collapsed.add(folder.path);
-      else this.collapsed.delete(folder.path);
+      const expand = this.collapsed.has(folder.path);
+      if (expand) this.collapsed.delete(folder.path);
+      else this.collapsed.add(folder.path);
       this.saveCollapsed();
-      this.render();
+      apply(expand);
+      this.updateCollapseButton(this.host.controller.getState());
     });
-    const children = item.createDiv({ cls: 'tree-item-children unc-children', attr: { role: 'group' } });
-    if (expanded) this.renderNode(folder, children, level + 1);
-    else children.remove();
   }
 
   private renderFile(file: ChangedFile, container: HTMLElement, level: number): void {
     const active = this.host.controller.activePath() === file.path;
-    const item = container.createDiv({ cls: `tree-item nav-file unc-file${active ? ' is-active' : ''}` });
+    const item = container.createDiv({ cls: 'tree-item unc-file' });
     item.dataset.path = file.path;
-    const row = item.createEl('button', {
-      cls: 'tree-item-self unc-row',
-      attr: { type: 'button', role: 'treeitem', 'aria-level': String(level) },
-    });
+    const row = item.createDiv({ cls: `tree-item-self is-clickable unc-row${active ? ' is-active' : ''}${file.status === 'D' ? ' unc-deleted' : ''}` });
     row.dataset.path = file.path;
+    row.setAttribute('role', 'treeitem');
+    row.setAttribute('aria-level', String(level));
+    row.setAttribute('aria-selected', String(active));
+    row.setAttribute('tabindex', '-1');
+    row.createDiv({ cls: 'tree-item-inner unc-name', text: displayName(file.path) });
+    const tag = extensionTag(file.path);
+    if (tag) row.createSpan({ cls: 'unc-file-tag', text: tag });
     const label = BADGE_LABEL[file.status];
-    const badge = row.createSpan({ cls: `unc-badge unc-badge-${file.status === '!' ? 'conflict' : file.status.toLowerCase()}`, text: file.status });
-    badge.setAttribute('aria-label', label);
-    setTooltip(badge, label);
-    row.createSpan({ cls: 'tree-item-inner', text: fileName(file.path) });
-    setTooltip(row, file.oldPath ? `${file.oldPath} → ${file.path}` : file.path);
+    const flair = row.createDiv({ cls: 'tree-item-flair-outer' })
+      .createSpan({ cls: `tree-item-flair unc-flair ${statusClass(file.status)}`, text: file.status });
+    flair.setAttribute('aria-label', label);
+    setTooltip(row, fileTooltip(file), { placement: 'right' });
     row.addEventListener('click', () => this.host.open(file));
     row.addEventListener('contextmenu', (event) => {
       event.preventDefault();
@@ -227,6 +303,11 @@ export class ChangesView extends ItemView {
     else if (position) menu.showAtPosition(position);
   }
 
+  private rowFor(path: string): HTMLElement | undefined {
+    return Array.from(this.treeEl?.querySelectorAll<HTMLElement>('.tree-item-self[data-path]') ?? [])
+      .find((element) => element.dataset.path === path);
+  }
+
   private initializeCollapsed(): void {
     if (this.collapsedInitialized) return;
     this.collapsedInitialized = true;
@@ -255,8 +336,10 @@ export class ChangesView extends ItemView {
 
   private updateActiveRow(): void {
     const active = this.host.controller.activePath();
-    for (const element of Array.from(this.contentEl.querySelectorAll<HTMLElement>('.unc-file'))) {
-      element.toggleClass('is-active', element.dataset.path === active);
+    for (const element of Array.from(this.contentEl.querySelectorAll<HTMLElement>('.unc-file > .tree-item-self'))) {
+      const isActive = element.dataset.path === active;
+      element.toggleClass('is-active', isActive);
+      element.setAttribute('aria-selected', String(isActive));
     }
   }
 }

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { App, WorkspaceLeaf } from 'obsidian';
 import { Menu } from '../helpers/obsidian';
-import { ChangesView } from '../../src/changes/changes-view';
+import { ChangesView, displayName, extensionTag } from '../../src/changes/changes-view';
 import type { ChangesController } from '../../src/changes/controller';
 import { DEFAULT_CHANGES_SETTINGS } from '../../src/changes/settings';
 import type { ChangeSet, ChangedFile, ChangesSettings, ChangesState } from '../../src/changes/types';
@@ -44,7 +44,7 @@ function makeView(state: ChangesState, options: { activePath?: string; settings?
 }
 
 function row(view: ChangesView, path: string): HTMLElement {
-  return view.contentEl.querySelector<HTMLElement>(`button[data-path="${path}"]`)!;
+  return view.contentEl.querySelector<HTMLElement>(`.tree-item-self[data-path="${path}"]`)!;
 }
 
 let view: ChangesView | undefined;
@@ -64,15 +64,31 @@ describe('changes view', () => {
     view = setup.view;
     await view.onOpen();
 
-    expect(view.contentEl.querySelector('.unc-summary')?.textContent).toBe('5 changes · +9 −4');
-    expect(view.contentEl.querySelectorAll('.unc-folder')).toHaveLength(1);
-    expect(view.contentEl.querySelector('.unc-folder-count')?.textContent).toBe('2');
-    expect(view.contentEl.querySelector('.unc-badge-m')?.textContent).toBe('M');
-    expect(view.contentEl.querySelector('.unc-badge-conflict')?.textContent).toBe('!');
-    expect(view.contentEl.querySelector('.unc-badge-r')?.getAttribute('aria-label')).toBe('Renamed');
-    expect(row(view, 'a/b.md').closest('.unc-file')?.classList.contains('is-active')).toBe(true);
-    expect(row(view, 'a/b.md').dataset.tooltip).toBe('a/b.md');
-    expect(row(view, 'renamed.md').dataset.tooltip).toBe('old.md → renamed.md');
+    expect(view.contentEl.querySelector('.unc-summary-count')?.textContent).toBe('5 changes');
+    expect(view.contentEl.querySelector('.unc-summary-added')?.textContent).toBe('+9');
+    expect(view.contentEl.querySelector('.unc-summary-deleted')?.textContent).toBe('−4');
+    expect(view.contentEl.querySelector('.unc-summary')?.getAttribute('aria-label')).toBe('5 changes, 9 lines added, 4 deleted');
+    expect(view.contentEl.querySelectorAll('.nav-header .nav-action-button')).toHaveLength(2);
+    expect(view.contentEl.querySelector('button')).toBeNull();
+
+    const folder = row(view, 'a');
+    expect(folder.classList.contains('mod-collapsible')).toBe(true);
+    expect(folder.querySelector('.collapse-icon')?.getAttribute('data-icon')).toBe('right-triangle');
+    expect(folder.querySelector('.tree-item-flair')?.textContent).toBe('2');
+    expect(folder.getAttribute('aria-expanded')).toBe('true');
+
+    const modified = row(view, 'a/b.md');
+    expect(modified.querySelector('.tree-item-inner')?.textContent).toBe('b');
+    expect(modified.querySelector('.unc-status-m')?.textContent).toBe('M');
+    expect(modified.classList.contains('is-active')).toBe(true);
+    expect(modified.getAttribute('aria-selected')).toBe('true');
+    expect(modified.getAttribute('aria-level')).toBe('2');
+    expect(modified.dataset.tooltip).toBe('a/b.md\nModified · +2 −1');
+    expect(row(view, 'conflict.md').querySelector('.unc-status-conflict')?.textContent).toBe('!');
+    expect(row(view, 'renamed.md').querySelector('.unc-status-r')?.getAttribute('aria-label')).toBe('Renamed');
+    expect(row(view, 'renamed.md').dataset.tooltip).toBe('old.md → renamed.md\nRenamed · +1 −0');
+    expect(row(view, 'root.md').classList.contains('unc-deleted')).toBe(true);
+    expect(row(view, 'root.md').classList.contains('is-active')).toBe(false);
 
     row(view, 'a/b.md').click();
     expect(setup.open).toHaveBeenCalledWith(expect.objectContaining({ path: 'a/b.md' }));
@@ -86,27 +102,42 @@ describe('changes view', () => {
     });
     view = setup.view;
     await view.onOpen();
-    expect(view.contentEl.querySelector('button[data-path="a/b.md"]')).not.toBeNull();
+    const header = view.contentEl.querySelector('.nav-header');
+    const folder = row(view, 'a');
+    expect(row(view, 'a/b.md')).not.toBeNull();
 
-    row(view, 'a').click();
-    expect(view.contentEl.querySelector('button[data-path="a/b.md"]')).toBeNull();
-    expect(row(view, 'a').getAttribute('aria-expanded')).toBe('false');
+    folder.click();
+    expect(row(view, 'a/b.md')).toBeNull();
+    expect(folder.getAttribute('aria-expanded')).toBe('false');
+    expect(folder.closest('.tree-item')?.classList.contains('is-collapsed')).toBe(true);
+    expect(folder.querySelector('.collapse-icon')?.classList.contains('is-collapsed')).toBe(true);
+    expect(folder.closest('.tree-item')?.querySelector('.tree-item-children')).toBeNull();
+    expect(view.contentEl.querySelector('.nav-header')).toBe(header);
+    expect(view.contentEl.querySelector('[aria-label="Expand all folders"]')).not.toBeNull();
+
     await vi.advanceTimersByTimeAsync(500);
     expect(setup.controller.saveCollapsedFolders).toHaveBeenCalledWith(['a']);
+    folder.click();
+    expect(row(view, 'a/b.md')).not.toBeNull();
+    expect(folder.querySelector('.collapse-icon')?.classList.contains('is-collapsed')).toBe(false);
   });
 
   it('renders empty and error states, and opens settings for a missing Git binary', async () => {
     const empty = makeView({ status: 'ready', set: readySet([]) });
     view = empty.view;
     await view.onOpen();
-    expect(view.contentEl.querySelector('.unc-empty')?.textContent).toBe('No changes since last commit');
+    expect(view.contentEl.querySelector('.pane-empty')?.textContent).toBe('No changes since last commit');
+    expect(view.contentEl.querySelector('.unc-summary')?.classList.contains('unc-summary-hidden')).toBe(true);
+    const collapseAll = view.contentEl.querySelector('[aria-label="Collapse all folders"]')!;
+    expect(collapseAll.classList.contains('is-disabled')).toBe(true);
+    expect(collapseAll.getAttribute('aria-disabled')).toBe('true');
     view.unload();
 
     const missing = makeView({ status: 'error', kind: 'git-missing', message: 'Git was not found.' });
     view = missing.view;
     await view.onOpen();
     expect(view.contentEl.querySelector('.unc-error-message')?.textContent).toBe('Git was not found.');
-    const button = view.contentEl.querySelector<HTMLButtonElement>('.unc-settings-button')!;
+    const button = view.contentEl.querySelector<HTMLButtonElement>('.pane-empty-actions .unc-settings-button')!;
     button.click();
     expect(missing.openSettings).toHaveBeenCalledTimes(1);
   });
@@ -140,10 +171,57 @@ describe('changes view', () => {
     );
     view = setup.view;
     await view.onOpen();
-    expect(view.contentEl.querySelector('button[data-path="a/b.md"]')).toBeNull();
+    expect(row(view, 'a/b.md')).toBeNull();
+    const header = view.contentEl.querySelector('.nav-header');
+    const tree = view.contentEl.querySelector<HTMLElement>('.unc-tree')!;
 
     setup.emit({ status: 'ready', set: readySet([changed('a/b.md', 'M'), changed('root.md', 'M')], 2, 0) });
-    expect(view.contentEl.querySelector('.unc-summary')?.textContent).toBe('2 changes · +2 −0');
-    expect(view.contentEl.querySelector('button[data-path="root.md"]')).not.toBeNull();
+    expect(view.contentEl.querySelector('.unc-summary-count')?.textContent).toBe('2 changes');
+    expect(row(view, 'root.md')).not.toBeNull();
+    expect(row(view, 'a/b.md')).toBeNull();
+    expect(view.contentEl.querySelector('.nav-header')).toBe(header);
+    expect(view.contentEl.querySelector('.unc-tree')).toBe(tree);
+  });
+
+  it('collapses and expands every folder from the header', async () => {
+    const setup = makeView({ status: 'ready', set: readySet([changed('a/b/c.md', 'M'), changed('d/e.md', 'M')]) });
+    view = setup.view;
+    await view.onOpen();
+    const toggle = view.contentEl.querySelector<HTMLElement>('.nav-action-button[aria-label="Collapse all folders"]')!;
+    toggle.click();
+    expect(row(view, 'a/b')).toBeNull();
+    expect(row(view, 'd/e.md')).toBeNull();
+    expect(toggle.getAttribute('aria-label')).toBe('Expand all folders');
+    expect(toggle.dataset.icon).toBe('chevrons-up-down');
+    toggle.click();
+    expect(row(view, 'a/b/c.md')).not.toBeNull();
+    expect(toggle.getAttribute('aria-label')).toBe('Collapse all folders');
+  });
+
+  it('shows non-Markdown extensions as a tag', async () => {
+    const setup = makeView({ status: 'ready', set: readySet([changed('café 🎉.md', 'A'), changed('photo.png', 'U', { binary: true })]) });
+    view = setup.view;
+    await view.onOpen();
+    expect(row(view, 'café 🎉.md').querySelector('.tree-item-inner')?.textContent).toBe('café 🎉');
+    expect(row(view, 'café 🎉.md').querySelector('.unc-file-tag')).toBeNull();
+    expect(row(view, 'photo.png').querySelector('.tree-item-inner')?.textContent).toBe('photo.png');
+    expect(row(view, 'photo.png').querySelector('.unc-file-tag')?.textContent).toBe('png');
+    expect(row(view, 'photo.png').dataset.tooltip).toBe('photo.png\nUntracked · binary');
+  });
+});
+
+describe('display names', () => {
+  it.each([
+    ['café 🎉.md', 'café 🎉', ''],
+    ['notes/notes.v2.md', 'notes.v2', ''],
+    ['README.MD', 'README', ''],
+    ['.md', '.md', ''],
+    ['.obsidian/app.json', 'app.json', 'json'],
+    ['Makefile', 'Makefile', ''],
+    ['photo.PNG', 'photo.PNG', 'png'],
+    ['trailing.', 'trailing.', ''],
+  ])('%s shows as %s with tag "%s"', (path, name, tag) => {
+    expect(displayName(path)).toBe(name);
+    expect(extensionTag(path)).toBe(tag);
   });
 });
