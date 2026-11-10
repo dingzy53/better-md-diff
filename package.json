@@ -1,6 +1,6 @@
 {
   "name": "uncommitted",
-  "version": "0.5.2",
+  "version": "0.5.1",
   "private": true,
   "description": "List every file that differs from the last commit, with status letters and a simple diff.",
   "license": "MIT",
