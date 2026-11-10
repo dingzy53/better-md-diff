@@ -94,6 +94,7 @@ export class ChangesView extends ItemView {
     this.register(() => this.unsubscribe?.());
     this.register(() => this.saveCollapsed.cancel());
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.updateActiveRow()));
+    this.registerEvent(this.app.workspace.on('file-open', () => this.updateActiveRow()));
     this.render();
   }
 

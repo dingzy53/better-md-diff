@@ -147,8 +147,9 @@ export class ChangesController extends Component {
     return this.files().find((file) => file.path === path);
   }
 
+  /** The file most recently open in the main area, kept while a sidebar has focus, as the file explorer does. */
   activePath(): string | undefined {
-    return this.host.app.workspace.activeEditor?.file?.path;
+    return this.host.app.workspace.getActiveFile()?.path;
   }
 
   adjacent(direction: -1 | 1): ChangedFile | undefined {

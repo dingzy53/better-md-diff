@@ -41,7 +41,7 @@ function makePlugin(changesOverrides: Partial<ChangesSettings> = {}) {
     workspace: {
       onLayoutReady: () => {},
       ensureSideLeaf,
-      activeEditor: null,
+      getActiveFile: () => null,
     },
   } as unknown as App;
 

@@ -33,7 +33,8 @@ function makeHost(overrides: Partial<ChangesSettings> = {}) {
   };
   const workspace = {
     onLayoutReady(callback: () => void) { layoutReady = callback; },
-    activeEditor: null,
+    activeFile: null as { path: string } | null,
+    getActiveFile() { return this.activeFile; },
   };
   const app = { vault, workspace } as unknown as App;
   const host: ChangesControllerHost = {
@@ -47,6 +48,7 @@ function makeHost(overrides: Partial<ChangesSettings> = {}) {
   return {
     host,
     settings,
+    workspace,
     emit(type: string, ...args: unknown[]) { for (const handler of handlers.get(type) ?? []) handler(...args); },
     ready() { layoutReady?.(); },
   };
@@ -61,6 +63,15 @@ beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { controller?.unload(); controller = undefined; vi.useRealTimers(); document.body.replaceChildren(); });
 
 describe('changes controller', () => {
+  it('reports the last opened file as active even while a sidebar has focus', () => {
+    const { host, workspace } = makeHost();
+    const { reader } = deferredReader();
+    controller = new ChangesController(host, reader);
+    expect(controller.activePath()).toBeUndefined();
+    workspace.activeFile = { path: 'Notes/Café 🎉.md' };
+    expect(controller.activePath()).toBe('Notes/Café 🎉.md');
+  });
+
   it('coalesces a burst of requests into one read after the debounce delay', async () => {
     const { host } = makeHost();
     const { reader, readChangeSet, calls } = deferredReader();
