@@ -10,6 +10,10 @@ A personal fork of [Better MD Diff](https://github.com/kamacheng/better-md-diff)
 
 <img src="docs/images/obsidian-demo.gif" alt="Edit a note, inspect a deletion, restore one change, and undo" width="560">
 
+<img src="docs/images/changes-list.png" alt="The changes list in the left sidebar beside a note and its diff panel" width="720">
+
+The **changes list** on the left is this fork's addition: every file that differs from `HEAD`, styled like the core file explorer.
+
 ## Features
 
 - **Changes list** in the left sidebar: a folder tree of every file that differs from `HEAD`, styled and navigated like the core file explorer.
@@ -59,6 +63,8 @@ To keep the installed plugin out of your vault's Git history, add `.obsidian/plu
 Open the list with the **Git compare** ribbon icon, the **Open changes list** command, or the status bar item. It sits in the left sidebar next to the file explorer and uses the same tree styling, so it follows your theme.
 
 Each row shows the file name without its extension, as the file explorer does. Non-Markdown files show their extension as a tag. A letter on the right gives the status: **A** added, **M** modified, **D** deleted (name struck through), **R** renamed, **U** untracked, **!** conflict. Folders show how many changed files they contain. Hover a row for its full path and line counts. The line under the toolbar sums up the whole list.
+
+<img src="docs/images/changes-sidebar-dark.png" alt="The changes list in the dark theme, with status letters, an extension tag, folder counts, and the active file highlighted" width="256">
 
 The list works from the keyboard: **Tab** moves into the tree, **↑**/**↓**, **Home** and **End** move between rows, **→** expands a folder or enters it, **←** collapses it or moves to its parent, and **Enter** or **Space** opens a file or toggles a folder. **Shift+F10** or the menu key opens the context menu.
 
