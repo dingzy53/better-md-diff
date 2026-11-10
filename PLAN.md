@@ -227,3 +227,11 @@ Reused as is:
 - Release attestation (`actions/attest`), which the docs recommend for directory submissions. Not needed here.
 - The deprecated `-rgb` variables in the upstream `bmd-*` CSS. They are upstream code and still work, so leave them to stay mergeable.
 - Community directory submission (forbidden by AGENTS.md).
+
+## Status (2026-11-10)
+
+- Phases 0–7 are done. `npm run check` passes with 344 tests and zero warnings. `RELEASE_TAG=0.6.0 npm run check:release` passes.
+- `scripts/check-changes-native.py` passes against Obsidian 1.14.4 in the light and dark themes. Row padding, font, line height, height, radius, colors and hover all match the core file explorer.
+- `scripts/host-smoke.py` stops at the diff panel border assertion (`0.588235px` instead of `1px`) on a display with fractional scaling. The 0.5.0 build fails the same way, so the failure predates this work. Every earlier smoke check passes.
+- Phase 8 is deferred. `eslint-plugin-obsidianmd` 0.5.1 flags `src/main.ts:356`, which is upstream code (`prefer-active-doc`). The fork's own warnings under 0.5.1 are fixed.
+- Not done yet: `git push origin main`, then `git tag 0.6.0 && git push origin 0.6.0`. These need the owner's go-ahead.
